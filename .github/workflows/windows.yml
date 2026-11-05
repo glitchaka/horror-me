@@ -20,4 +20,4 @@ jobs:
           if (-not (Test-Path "build/Release/HorrorMe.exe")) {
             throw "HorrorMe.exe no fue creado"
           }
-          ctest --test-dir build --config Release --output-on-failure
+          ctest --test-dir build -C Release --output-on-failure
