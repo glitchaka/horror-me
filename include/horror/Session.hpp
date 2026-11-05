@@ -25,6 +25,7 @@ public:
     [[nodiscard]] const std::array<Terminal,4>& terminals() const { return terminals_; }
     [[nodiscard]] Vec2 objective() const;
     [[nodiscard]] std::string objectiveName() const;
+    [[nodiscard]] const char* actName() const;
     [[nodiscard]] int activeTerminal() const { return activeTerminal_; }
     [[nodiscard]] int completed() const { return completed_; }
     [[nodiscard]] int anchors() const { return anchors_; }
@@ -66,7 +67,7 @@ private:
     Phase phase_{Phase::Menu};
     double heading_{.25},pressure_{9},rewriteSeconds_{33},elapsed_{0};
     double scanSeconds_{0},scanCooldown_{0},anchorSeconds_{0};
-    double interaction_{0},wrongCooldown_{0};
+    double interaction_{0},wrongCooldown_{0},whisperClock_{13};
     double hitSeconds_{0},shake_{0},notificationSeconds_{0};
     int completed_{0},anchors_{2},rewrites_{0},activeTerminal_{2};
     std::string notification_,defeatCause_;
