@@ -54,6 +54,25 @@ void SceneRenderer::draw(Canvas& out,const GameSession& game) const {
         hit-=std::floor(hit);
         int tx=int(hit*32);
         if((side==0&&rx>0)||(side==1&&ry<0))tx=31-tx;
+        // Identify only fixtures on the wall face that the ray actually hits.
+        const int floorX=side==0?mx-stepX:mx;
+        const int floorY=side==1?my-stepY:my;
+        int panelType=-1;
+        bool exitPanel=false;
+        for(const auto& terminal:game.terminals()) {
+            if(terminal.wallX==mx&&terminal.wallY==my&&
+               cell(terminal.position.x)==floorX&&
+               cell(terminal.position.y)==floorY) {
+                panelType=terminal.id;
+                break;
+            }
+        }
+        if(game.completed()>=5) {
+            const auto [wx,wy]=game.exitWall();
+            if(wx==mx&&wy==my&&
+               cell(game.exit().x)==floorX&&cell(game.exit().y)==floorY)
+                exitPanel=true;
+        }
         const int salt=int(noiseHash(mx,my)%17);
         const double fade=std::clamp(1.0/(1.0+depth*.12),.20,1.0);
         for(int y=top;y<bottom;++y) {
@@ -63,10 +82,15 @@ void SceneRenderer::draw(Canvas& out,const GameSession& game) const {
             if(noiseHash(mx*3+tx/5,my*5+ty/5)%29==0)lit+=15;
             if(ty>16&&ty<18&&tx>5&&tx<27&&noiseHash(mx,my)%6==0)lit+=24;
             const double v=lit*fade;
-            out.pixel(x,y,rgb(int(v*(1+glow*.48)),int(v*1.24),int(v*1.5)));
+            const Color wallColor=rgb(int(v*(1+glow*.48)),int(v*1.24),int(v*1.5));
+            const double relativeV=double(y-horizon+wallHeight*.5)/std::max(1,wallHeight);
+            const Color decal=(panelType>=0||exitPanel)?
+                panelPixel(exitPanel,panelType,hit,relativeV,
+                           std::fmod(game.elapsed()*2.0,1.0),game.activeTerminal()):0;
+            out.pixel(x,y,decal?shade(decal,std::clamp(fade+.22,.50,1.0)):wallColor);
         }
     }
-    sprites(out,game,direction,plane,horizon,depths);
+    drawRevisor(out,game,direction,plane,horizon,depths);
     const Color cross=game.hitSeconds()>0?rgb(255,87,66):rgb(125,157,160);
     out.rect(ScreenW/2-3,ScreenH/2,2,1,cross);
     out.rect(ScreenW/2+2,ScreenH/2,2,1,cross);
@@ -87,85 +111,72 @@ void SceneRenderer::draw(Canvas& out,const GameSession& game) const {
         out.rect(xx,yy,width,1,imminent?rgb(139,33,39):rgb(61,38,48));
     }
 }
-Color SceneRenderer::spritePixel(int kind,int type,double u,double v,
-                                  double pulse,int active) const {
+Color SceneRenderer::panelPixel(bool exitPanel,int type,double u,double v,
+                                 double pulse,int active) const {
+    // The panels are decals on actual maze walls. No free-floating "doors".
+    if(u<.225||u>.775||v<.29||v>.72)return 0;
+    const double x=(u-.225)/.55;
+    const double y=(v-.29)/.43;
+    if(x<.055||x>.945||y<.065||y>.935)return rgb(27,42,48);
+    if(x<.10||x>.90||y<.11||y>.89)return rgb(83,102,107);
+    if(x<.145||x>.855||y<.18||y>.76)return rgb(11,18,24);
+    const bool activePanel=exitPanel||type==active;
+    const Color lit=exitPanel?rgb(99,233,188)
+                       :activePanel?TerminalColors[static_cast<std::size_t>(type)]
+                                    :rgb(44,68,72);
+    if(y>.78&&x>.35&&x<.65)return activePanel?rgb(237,210,126):rgb(48,52,56);
+    if(y>.68) {
+        if(int(x*30)%6==0)return rgb(84,97,99);
+        return rgb(25,31,39);
+    }
+    if(int(x*24)%7==0||int(y*24)%9==0)
+        return shade(lit,activePanel?.50:.27);
+    const double flicker=activePanel?.91+.08*std::sin(pulse*Pi*2):.50;
+    return shade(lit,flicker);
+}
+Color SceneRenderer::revisorPixel(bool finalPhase,double u,double v,
+                                   double pulse) const {
     const double horizontal=std::abs(u-.5);
-    if(kind==0) {
-        if(horizontal>.31||v<.04||v>.97) return 0;
-        const Color tone=type==active?TerminalColors[static_cast<std::size_t>(type)]:rgb(49,61,68);
-        if(v<.16)return horizontal<.23?shade(tone,.7):rgb(15,21,29);
-        if(v<.54) {
-            if(horizontal<.20&&v>.22&&v<.48) {
-                if((int(u*30)+int(v*38))%8==0)return rgb(223,239,212);
-                return shade(tone,.85+.1*pulse);
-            }
-            return rgb(21,29,39);
-        }
-        if(horizontal<.1&&v>.68&&v<.78)return tone;
-        return int(v*48)%8==0?rgb(49,64,71):rgb(24,31,41);
+    if(v<.08||v>.98)return 0;
+    if(v<.30) {
+        const double radius=std::hypot((u-.5)*1.1,(v-.20)*2.5);
+        if(radius>.22)return 0;
+        if(v>.168&&v<.215&&((u>.35&&u<.43)||(u>.56&&u<.64)))
+            return finalPhase?(pulse>.5?rgb(255,220,98):rgb(253,80,51))
+                             :(pulse>.5?rgb(255,78,65):rgb(143,27,45));
+        return rgb(12,11,18);
     }
-    if(kind==1||kind==3) {
-        if(v<.08||v>.98)return 0;
-        if(v<.30) {
-            const double radius=std::hypot((u-.5)*1.1,(v-.20)*2.5);
-            if(radius>.22)return 0;
-            if(v>.168&&v<.215&&((u>.35&&u<.43)||(u>.56&&u<.64)))
-                return kind==3?(pulse>.5?rgb(255,220,98):rgb(253,80,51))
-                              :(pulse>.5?rgb(255,78,65):rgb(143,27,45));
-            return rgb(12,11,18);
-        }
-        const double width=v<.65?.18+(v-.3)*.43:.33-(v-.65)*.16;
-        if(horizontal<width) {
-            if(horizontal<.03)return kind==3?rgb(98,39,42):rgb(45,25,34);
-            return kind==3?rgb(38+int(19*v),13,25):rgb(15+int(13*v),15,24+int(8*v));
-        }
-        if(v>.36&&v<.78&&horizontal<.36)
-            return kind==3?rgb(73,22,35):rgb(23,19,28);
-        return 0;
+    const double width=v<.65?.18+(v-.3)*.43:.33-(v-.65)*.16;
+    if(horizontal<width) {
+        if(horizontal<.03)return finalPhase?rgb(98,39,42):rgb(45,25,34);
+        return finalPhase?rgb(38+int(19*v),13,25):rgb(15+int(13*v),15,24+int(8*v));
     }
-    if(kind==2) {
-        if(v<.04||v>.98||horizontal>.38)return 0;
-        if(horizontal>.28||v<.13||v>.88)return rgb(96,212,216);
-        if(horizontal>.23)return rgb(27,68,78);
-        if(int((u+v)*31)%7==0)return rgb(38,87,96);
-        return rgb(9,24,34);
-    }
+    if(v>.36&&v<.78&&horizontal<.36)
+        return finalPhase?rgb(73,22,35):rgb(23,19,28);
     return 0;
 }
-void SceneRenderer::sprites(Canvas& out,const GameSession& game,
-                            Vec2 direction,Vec2 plane,int horizon,
-                            const std::array<double,ScreenW>& depths) const {
-    struct Sprite { Vec2 position;int kind;int type;double distance; };
-    std::vector<Sprite> sprites;
+void SceneRenderer::drawRevisor(Canvas& out,const GameSession& game,
+                                 Vec2 direction,Vec2 plane,int horizon,
+                                 const std::array<double,ScreenW>& depths) const {
     const Vec2 player=game.player();
-    for(const auto& t:game.terminals())
-        sprites.push_back({t.position,0,t.id,distance(player,t.position)});
-    sprites.push_back({game.revisor(),game.completed()>=5?3:1,0,
-                       distance(player,game.revisor())});
-    if(game.completed()>=5)
-        sprites.push_back({game.exit(),2,0,distance(player,game.exit())});
-    std::sort(sprites.begin(),sprites.end(),
-              [](const Sprite& a,const Sprite& b){return a.distance>b.distance;});
-    const double determinant=1/(plane.x*direction.y-direction.x*plane.y);
-    for(const auto& s:sprites) {
-        const double relX=s.position.x-player.x,relY=s.position.y-player.y;
-        const double transformX=determinant*(direction.y*relX-direction.x*relY);
-        const double transformY=determinant*(-plane.y*relX+plane.x*relY);
-        if(transformY<=.12)continue;
-        const int screenX=int(ScreenW*.5*(1+transformX/transformY));
-        const double scale=s.kind==1?.99:(s.kind==2?.95:.74);
-        const int height=std::min(1200,int(ScreenH/transformY*scale));
-        const int width=std::max(1,int(height*.64));
-        const int left=screenX-width/2,top=horizon-height/2;
-        const double pulse=std::fmod(game.elapsed()*5.8,1.0);
-        for(int x=std::max(0,left);x<std::min(ScreenW,left+width);++x) {
-            if(transformY>depths[x]+.08)continue;
-            const double u=double(x-left)/width;
-            for(int y=std::max(22,top);y<std::min(ScreenH-28,top+height);++y) {
-                const double v=double(y-top)/height;
-                const Color color=spritePixel(s.kind,s.type,u,v,pulse,game.activeTerminal());
-                if(color)out.pixel(x,y,shade(color,std::clamp(1.1-transformY*.025,.26,1.0)));
-            }
+    const Vec2 enemy=game.revisor();
+    const double inverse=1.0/(plane.x*direction.y-direction.x*plane.y);
+    const double relX=enemy.x-player.x,relY=enemy.y-player.y;
+    const double transformX=inverse*(direction.y*relX-direction.x*relY);
+    const double transformY=inverse*(-plane.y*relX+plane.x*relY);
+    if(transformY<=.12)return;
+    const int screenX=int(ScreenW*.5*(1+transformX/transformY));
+    const int height=std::min(1200,int(ScreenH/transformY*.99));
+    const int width=std::max(1,int(height*.64));
+    const int left=screenX-width/2,top=horizon-height/2;
+    const double pulse=std::fmod(game.elapsed()*5.8,1.0);
+    for(int x=std::max(0,left);x<std::min(ScreenW,left+width);++x) {
+        if(transformY>depths[x]+.08)continue;
+        const double u=double(x-left)/width;
+        for(int y=std::max(22,top);y<std::min(ScreenH-28,top+height);++y) {
+            const double v=double(y-top)/height;
+            const Color color=revisorPixel(game.completed()>=5,u,v,pulse);
+            if(color)out.pixel(x,y,shade(color,std::clamp(1.1-transformY*.025,.26,1.0)));
         }
     }
 }
