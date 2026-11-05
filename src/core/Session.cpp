@@ -30,6 +30,17 @@ std::vector<SoundEvent> GameSession::drainSounds() {
 Vec2 GameSession::objective() const {
     return completed_<5?terminals_[activeTerminal_].position:exit_;
 }
+const char* GameSession::actName() const {
+    static constexpr std::array<const char*,6> Acts{
+        "I. RECEPCION",
+        "II. CRITERIO VARIABLE",
+        "III. RETRABAJO",
+        "IV. AUDITORIA",
+        "V. REINCIDENCIA",
+        "VI. LA NEGATIVA"
+    };
+    return Acts[static_cast<std::size_t>(std::clamp(completed_,0,5))];
+}
 std::string GameSession::objectiveName() const {
     if(completed_>=5) return "RECHAZAR LA REVISION FINAL";
     return std::string("SELLAR: ")+Names[activeTerminal_];
@@ -98,6 +109,7 @@ void GameSession::start() {
     pressure_=9;rewriteSeconds_=33;elapsed_=0;
     scanSeconds_=scanCooldown_=anchorSeconds_=0;
     interaction_=wrongCooldown_=hitSeconds_=shake_=0;
+    whisperClock_=13;
     player_={1.5,1.5};heading_=.25;
     maze_.regenerate(random_);
     placeObjects();
@@ -136,10 +148,14 @@ void GameSession::complete() {
     anchors_=std::min(3,anchors_+1);
     resetDeadline();
     shake_=.16;
-    if(completed_==5)
-        inform("LA ULTIMA ORDEN ES IMPOSIBLE. BUSCA EL NUCLEO.",6);
-    else
-        inform("ACEPTADO... HASTA LA SIGUIENTE REVISION.",4);
+    static constexpr std::array<const char*,5> Responses{
+        "ACEPTADO. EL CRITERIO ANTERIOR YA NO SIRVE.",
+        "CORRECTO. SIN EMBARGO, ESO NO FUE LO SOLICITADO.",
+        "EL INFORME CONTRADICE AL INFORME.",
+        "TODAS LAS REVISIONES DEBEN REPETIRSE.",
+        "QUEDA UNA ORDEN. ES IMPOSIBLE. BUSCA EL NUCLEO."
+    };
+    inform(Responses[static_cast<std::size_t>(completed_-1)],completed_==5?6:4);
     sound(SoundEvent::Seal);
 }
 void GameSession::lose(std::string cause) {
@@ -206,6 +222,22 @@ void GameSession::update(double dt,const Input& input) {
     }
     elapsed_+=dt;
     notificationSeconds_=std::max(0.0,notificationSeconds_-dt);
+    whisperClock_-=dt;
+    if(whisperClock_<=0) {
+        whisperClock_=12+randomInt(0,7);
+        if(notificationSeconds_<=0&&pressure_>26) {
+            static constexpr std::array<const char*,6> Whispers{
+                "SE ENCONTRO UN ERROR. NO SE INDICA CUAL.",
+                "VERSION ANTERIOR: ACEPTADA. VERSION ACTUAL: NO.",
+                "LA REVISION CAMBIA A PARTIR DE AHORA.",
+                "EL SILENCIO TAMBIEN ES UN INFORME.",
+                "SE EXIGE UNA CORRECCION A LA CORRECCION.",
+                "NO SE HA CONFIRMADO LA EXISTENCIA DE LA META."
+            };
+            inform(Whispers[static_cast<std::size_t>(randomInt(0,5))],3.2);
+            shake_=std::max(shake_,.12);
+        }
+    }
     hitSeconds_=std::max(0.0,hitSeconds_-dt);
     scanSeconds_=std::max(0.0,scanSeconds_-dt);
     scanCooldown_=std::max(0.0,scanCooldown_-dt);
