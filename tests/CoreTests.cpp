@@ -21,6 +21,11 @@ void testMazeConnectivity() {
         maze.regenerate(rng);
         const auto floor=maze.floors();
         require(floor.size()>125,"La generacion contiene pocas casillas");
+        const Vec2 destination=maze.farthest({1.5,1.5});
+        const auto route=maze.shortestPath({1.5,1.5},destination);
+        require(!route.empty(),"No hay ruta a una casilla abierta");
+        require(int(route.size())==maze.stepsBetween({1.5,1.5},destination)+1,
+                "La ruta calculada no coincide con la distancia BFS");
         require(maze.open(1,1),"El punto de partida esta bloqueado");
         for(Vec2 p:floor)
             require(maze.stepsBetween({1.5,1.5},p)>=0,
@@ -66,9 +71,26 @@ void testSession() {
     input.set(13,false);
     input.endFrame();
     require(session.rewriteSeconds()>=32,"Plazo inicial demasiado breve");
-    for(const auto& terminal:session.terminals())
+    for(const auto& terminal:session.terminals()) {
         require(session.maze().stepsBetween(session.player(),terminal.position)>=0,
                 "Existe una terminal inaccesible");
+        require(session.maze().open(cell(terminal.position.x),cell(terminal.position.y)),
+                "Una terminal bloquea el pasillo");
+        require(session.maze().wall(terminal.wallX,terminal.wallY),
+                "Una terminal no esta montada sobre pared");
+        require(std::abs(cell(terminal.position.x)-terminal.wallX)+
+                std::abs(cell(terminal.position.y)-terminal.wallY)==1,
+                "Una terminal no tiene pared adyacente");
+    }
+    const auto [exitWallX,exitWallY]=session.exitWall();
+    require(session.maze().wall(exitWallX,exitWallY),
+            "El nucleo final no tiene un panel montado sobre pared");
+    require(std::abs(cell(session.exit().x)-exitWallX)+
+            std::abs(cell(session.exit().y)-exitWallY)==1,
+            "El nucleo no es accesible desde la casilla contigua");
+    require(session.routeSteps()>0,"No hay ruta inicial a la primera terminal");
+    require(session.objectiveRoute().size()==static_cast<std::size_t>(session.routeSteps()+1),
+            "La ruta no coincide con la distancia mostrada");
     for(int i=0;i<2200&&session.phase()==Phase::Playing;++i) {
         session.update(.05,input);
         require(std::isfinite(session.pressure()),"Presion no finita");
@@ -76,6 +98,12 @@ void testSession() {
                 "Jugador desplazado a una pared");
         require(session.maze().stepsBetween(session.player(),session.objective())>=0,
                 "Objetivo inaccesible tras una revision");
+        for(const auto& terminal:session.terminals())
+            require(session.maze().wall(terminal.wallX,terminal.wallY),
+                    "Una revision destruyo el soporte de una terminal");
+        const auto [wx,wy]=session.exitWall();
+        require(session.maze().wall(wx,wy),
+                "Una revision elimino la pared del nucleo");
     }
     if(session.phase()==Phase::Defeat) {
         input.set(13,true);
