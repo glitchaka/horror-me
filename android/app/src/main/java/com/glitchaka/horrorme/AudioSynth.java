@@ -11,6 +11,7 @@ final class AudioSynth {
     private static final int RATE=22050;
     private final AtomicInteger pending=new AtomicInteger();
     private volatile float tension=0;
+    private volatile boolean muted=false;
     private volatile boolean running;
     private Thread thread;
     private long frame;
@@ -22,6 +23,7 @@ final class AudioSynth {
         if(eventMask!=0) pending.getAndAccumulate(eventMask,(a,b)->a|b);
     }
     void setTension(float pressure) {tension=Math.max(0,Math.min(1,pressure));}
+    void toggleMute() {muted=!muted;}
 
     synchronized void start() {
         if(running)return;
@@ -105,7 +107,7 @@ final class AudioSynth {
                         value+=effect*Math.pow(1-progress,1.5)*.34;
                         effectFrames--;
                     }
-                    samples[j]=(short)(Math.max(-.90,Math.min(.90,value))*32700);
+                    samples[j]=(short)(muted?0:Math.max(-.90,Math.min(.90,value))*32700);
                 }
                 int written=track.write(samples,0,samples.length,AudioTrack.WRITE_BLOCKING);
                 if(written<0)break;
