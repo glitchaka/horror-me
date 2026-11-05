@@ -14,7 +14,7 @@ void HudRenderer::map(Canvas& canvas,const GameSession& game) const {
     constexpr int scale=4;
     constexpr int left=ScreenW-MapW*scale-11;
     constexpr int top=34;
-    canvas.rect(left-6,top-17,MapW*scale+12,MapH*scale+25,rgb(6,12,20));
+    canvas.rect(left-6,top-17,MapW*scale+12,MapH*scale+54,rgb(6,12,20));
     canvas.text(left,top-12,"PLANO INESTABLE",rgb(164,190,199));
     const Maze& maze=game.maze();
     for(int y=0;y<MapH;++y) for(int x=0;x<MapW;++x)
@@ -23,12 +23,18 @@ void HudRenderer::map(Canvas& canvas,const GameSession& game) const {
     const auto marker=[&](Vec2 position,Color color) {
         canvas.rect(left+cell(position.x)*scale,top+cell(position.y)*scale,3,3,color);
     };
+    const auto route=game.objectiveRoute();
+    for(std::size_t i=1;i<route.size();++i)
+        marker(route[i],rgb(33,103,119));
     for(const auto& terminal:game.terminals())
-        marker(terminal.position,terminal.id==game.activeTerminal()?
+        marker(terminal.position,terminal.id==game.activeTerminal()&&game.completed()<5?
                TerminalColors[static_cast<std::size_t>(terminal.id)]:rgb(82,85,90));
     if(game.completed()>=5)marker(game.exit(),rgb(113,235,209));
     marker(game.revisor(),rgb(227,39,59));
     marker(game.player(),rgb(242,242,217));
+    canvas.text(left,top+MapH*scale+3,"BLANCO: TU",rgb(242,242,217));
+    canvas.text(left,top+MapH*scale+13,"ROJO: REVISOR",rgb(227,68,78));
+    canvas.text(left,top+MapH*scale+23,"AZUL: RUTA",rgb(114,220,200));
 }
 void HudRenderer::menu(Canvas& canvas,const GameSession& game) const {
     canvas.clear(rgb(6,10,16));
@@ -44,12 +50,12 @@ void HudRenderer::menu(Canvas& canvas,const GameSession& game) const {
     canvas.center(27,"PROTOCOLO",rgb(170,199,209),2);
     canvas.center(48,"NO CONFORME",rgb(235,105,103),2);
     canvas.center(76,"HORROR SISTEMICO EN PRIMERA PERSONA",rgb(137,165,173));
-    canvas.center(95,"EL MUNDO CAMBIA MIENTRAS AVANZAS.",rgb(221,213,190));
-    canvas.center(107,"NO HAY SALTOS. NO HAY DISPAROS.",rgb(221,213,190));
-    canvas.center(119,"HAY REGLAS. Y PUEDES NEGARTE.",rgb(221,213,190));
+    canvas.center(95,"CUMPLE 5 ORDENES CAMBIANTES.",rgb(221,213,190));
+    canvas.center(107,"BUSCA EL PANEL ILUMINADO EN LA PARED.",rgb(221,213,190));
+    canvas.center(119,"EL PLANO MARCA LA RUTA EN AZUL.",rgb(221,213,190));
     canvas.text(25,146,"WASD: MOVER  RATON / FLECHAS: GIRAR",rgb(145,176,182));
-    canvas.text(25,156,"E: SELLAR  F: ESCANER  Q: ANCLA",rgb(145,176,182));
-    canvas.text(25,166,"TAB: PLANO  SHIFT: CORRER  P: PAUSA",rgb(145,176,182));
+    canvas.text(25,156,"E: SELLAR  F: RASTREAR  Q: ANCLA",rgb(145,176,182));
+    canvas.text(25,166,"TAB: RUTA  SHIFT: CORRER  P: PAUSA",rgb(145,176,182));
     canvas.center(190,"ENTER PARA ENTRAR",rgb(239,162,132));
     canvas.center(202,"M: AUDIO",rgb(98,125,136));
 }
@@ -91,30 +97,45 @@ void HudRenderer::overlay(Canvas& canvas,const GameSession& game) const {
     if(game.anchorSeconds()>0)
         canvas.text(7,32,"ANCLA ACTIVA",rgb(107,215,214));
     if(game.scanSeconds()>0) {
-        const Vec2 target=game.objective(),player=game.player();
+        const auto route=game.objectiveRoute();
+        const Vec2 player=game.player();
+        const Vec2 target=route.size()>1?route[1]:game.objective();
         const double angle=wrapAngle(std::atan2(target.y-player.y,target.x-player.x)-game.heading());
-        const int x=std::clamp(int(ScreenW/2+std::sin(angle)*115),25,ScreenW-25);
-        canvas.text(x-17,38,std::cos(angle)>0?"OBJETIVO":"DETRAS",rgb(235,202,130));
-        canvas.rect(x-1,50,3,4,rgb(235,202,130));
+        const bool behind=std::cos(angle)<-.50;
+        const int x=std::clamp(int(ScreenW/2+std::sin(angle)*115),35,ScreenW-35);
+        canvas.text(x-38,39,behind?"GIRA DETRAS":"SIGUE RUTA",rgb(235,202,130));
+        canvas.rect(x-2,50,5,5,rgb(235,202,130));
     }
     canvas.rect(0,179,ScreenW,37,rgb(8,12,18));
     canvas.rect(0,179,ScreenW,1,rgb(54,68,75));
-    canvas.text(5,184,game.objectiveName(),rgb(228,225,200));
+    char title[100]{};
+    std::snprintf(title,sizeof(title),"ORDEN %d/5: %s  |  RUTA %d PASOS",
+                  std::min(game.completed()+1,5),game.objectiveName().c_str(),
+                  std::max(0,game.routeSteps()));
+    if(game.completed()>=5)
+        std::snprintf(title,sizeof(title),"OBJETIVO FINAL: RECHAZAR EN EL NUCLEO | %d PASOS",
+                      std::max(0,game.routeSteps()));
+    canvas.text(5,184,title,rgb(228,225,200));
     char status[100]{};
     if(game.completed()<5)
-        std::snprintf(status,sizeof(status),"ANCLAS %d  CAMBIO %02d S  F:ESCANEAR  Q:ANCLAR",
-                      game.anchors(),int(std::max(0.0,game.rewriteSeconds())));
+        std::snprintf(status,sizeof(status),"TAB: RUTA  F: RASTREAR  E: SELLAR  CAMBIO %02dS  ANCLAS %d",
+                      int(std::max(0.0,game.rewriteSeconds())),game.anchors());
     else
-        std::snprintf(status,sizeof(status),"EL REVISOR PERSIGUE. R EN EL NUCLEO: NEGARSE");
+        std::snprintf(status,sizeof(status),"SIGUE EL PLANO (TAB) Y PULSA R JUNTO AL NUCLEO");
     canvas.text(5,197,status,rgb(122,158,165));
     if(game.notificationSeconds()>0) {
         canvas.rect(0,161,ScreenW,15,rgb(18,16,22));
         canvas.center(165,game.notification(),rgb(236,156,143));
     }
+    const int nearby=game.nearbyTerminal();
+    if(game.completed()<5&&nearby>=0&&nearby!=game.activeTerminal()) {
+        canvas.rect(59,136,266,20,rgb(40,18,24));
+        canvas.center(142,"PANEL INCORRECTO - BUSCA EL ILUMINADO",rgb(240,146,137));
+    }
     if(game.objectiveNearby()) {
         canvas.rect(89,139,206,17,rgb(11,28,32));
         if(game.completed()<5) {
-            canvas.center(143,"MANTEN E PARA SELLAR",rgb(190,233,218));
+            canvas.center(143,"OBJETIVO CORRECTO: MANTEN E",rgb(190,233,218));
             canvas.rect(100,155,int(184*std::clamp(game.interactionProgress()/1.18,0.0,1.0)),
                         2,rgb(112,215,193));
         } else canvas.center(143,"PULSA R PARA DECIR NO",rgb(190,233,218));
