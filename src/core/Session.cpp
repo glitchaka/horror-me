@@ -59,6 +59,9 @@ std::string GameSession::objectiveName() const {
     if(completed_>=5) return "RECHAZAR LA REVISION FINAL";
     return std::string("SELLAR: ")+Names[activeTerminal_];
 }
+std::vector<Vec2> GameSession::objectiveRoute() const {
+    return maze_.shortestPath(player_,objective());
+}
 int GameSession::routeSteps() const {
     return maze_.stepsBetween(player_,objective());
 }
