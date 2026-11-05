@@ -128,6 +128,7 @@ public final class MainActivity extends Activity {
         private volatile boolean resumed=true;
         private volatile boolean running=false;
         private volatile int phase=0;
+        private boolean previousMute=false;
         private Thread thread;
 
         private static final int ROLE_MOVE=0;
@@ -214,6 +215,9 @@ public final class MainActivity extends Activity {
                     dragDelta=0;
                     impulse=0;
                 }
+                boolean muteDown=(keys&MUTE)!=0;
+                if(muteDown&&!previousMute)sound.toggleMute();
+                previousMute=muteDown;
                 nativeFrame(keys,look,dt,pixels);
                 phase=nativePhase();
                 sound.queue(nativeSoundEvents());
