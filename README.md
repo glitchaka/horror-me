@@ -14,6 +14,14 @@ El archivo **HorrorMe-Windows-x64.exe** se publica directamente en [GitHub Relea
 
 El workflow extrae la versión de `project(HorrorMe VERSION ...)` en `CMakeLists.txt`. Para publicar otra versión, se debe aumentar esa versión y actualizar `docs/RELEASE_NOTES.md`. Una versión ya publicada no se sobrescribe silenciosamente.
 
+## Android — APK nativo de prueba
+
+El cliente para teléfonos Android ARM64 reutiliza el motor C++20 mediante JNI; no usa HTML, WebView ni JavaScript. La interfaz táctil se dibuja con Android SurfaceView y el audio usa AudioTrack.
+
+La versión de prueba se publica como **HorrorMe-Android-arm64-test.apk** dentro de [GitHub Releases](https://github.com/glitchaka/horror-me/releases) una vez aprobada su compilación Android. La firma es de depuración; puede requerir desinstalar una versión anterior para actualizar. Requiere Android 7+ y procesador ARM64.
+
+Controles: palanca izquierda para desplazamiento, arrastrar para mirar, botones SELLAR, ESCAN, ANCLA, PLANO, NO, CORRER y PAUSA. Detalles en [android/README.md](android/README.md).
+
 ## Compilar en Windows
 
 Requisitos: Windows 10/11, CMake 3.21+ y compilador MSVC con soporte de C++20.
