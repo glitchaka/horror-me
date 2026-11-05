@@ -28,6 +28,7 @@ public:
     [[nodiscard]] Vec2 objective() const;
     [[nodiscard]] std::string objectiveName() const;
     [[nodiscard]] int routeSteps() const;
+    [[nodiscard]] std::vector<Vec2> objectiveRoute() const;
     [[nodiscard]] int nearbyTerminal() const;
     [[nodiscard]] const char* actName() const;
     [[nodiscard]] int activeTerminal() const { return activeTerminal_; }
