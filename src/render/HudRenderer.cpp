@@ -76,6 +76,7 @@ void HudRenderer::overlay(Canvas& canvas,const GameSession& game) const {
     canvas.rect(0,0,ScreenW,24,rgb(8,13,21));
     canvas.rect(0,23,ScreenW,1,rgb(51,70,77));
     canvas.text(6,5,"PROTOCOLO / NO CONFORME",rgb(157,185,200));
+    canvas.text(6,15,game.actName(),rgb(179,115,114));
     char label[32]{};
     std::snprintf(label,sizeof(label),"%d/5",game.completed());
     canvas.text(167,5,label,rgb(226,225,196));
