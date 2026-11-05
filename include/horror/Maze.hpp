@@ -10,6 +10,7 @@ public:
     void regenerate(std::mt19937& random);
     void distort(std::mt19937& random,const std::vector<Vec2>& protectedPositions,int changes=5);
     [[nodiscard]] int stepsBetween(Vec2 from,Vec2 to) const;
+    [[nodiscard]] std::vector<Vec2> shortestPath(Vec2 from,Vec2 to) const;
     [[nodiscard]] bool wall(int x,int y) const;
     [[nodiscard]] bool open(int x,int y) const { return !wall(x,y); }
     [[nodiscard]] bool circleFree(double x,double y,double radius=.22) const;
