@@ -1,19 +1,20 @@
-# PROTOCOLO: NO CONFORME — Versión 0.1.0
+# PROTOCOLO: NO CONFORME — Versión 0.2.0 (Windows y Android)
 
-Primera versión nativa para Windows x64 del juego de horror sistémico en C++20.
+Versión nativa del juego de horror sistémico en primera persona para Windows x64 y Android ARM64.
 
-### Contenido
-- Exploración en primera persona mediante raycasting y renderizado 2D por software.
-- Cinco entregas y seis actos narrativos de presión creciente.
-- El Revisor, un perseguidor con navegación sobre el laberinto.
-- Revisiones que cambian pasillos sin bloquear la conectividad.
-- Escáner de objetivos, anclas de estabilidad, plano y final de rechazo.
-- Audio sintetizado y efectos por código, sin recursos externos.
+### Android (prueba)
+- HorrorMe-Android-arm64-test.apk: APK de prueba para Android ARM64, firmado con la clave de depuración automática de GitHub Actions.
+- Pantalla horizontal y controles táctiles: palanca izquierda para moverse, arrastre para girar; botones Sellar, Escán, Ancla, Plano, No y Pausa.
+- Simulación, renderizado, IA y laberinto utilizan los mismos módulos C++20 de Windows.
+- La salida gráfica utiliza SurfaceView/Canvas nativos y el sonido AudioTrack; sin tecnologías web ni ficheros externos.
+- Android puede solicitar autorización para instalar aplicaciones desde el navegador o administrador de archivos.
+- APK de prueba, no distribución final para Google Play.
 
-### Archivo
-**HorrorMe-Windows-x64.exe** es el juego. Ejecutarlo directamente en Windows 10 u 11 de 64 bits.
+### Windows
+- HorrorMe-Windows-x64.exe: ejecutable nativo con runtime C++ estático.
 
-Incluye **HorrorMe-Windows-x64.exe.sha256** para comprobar la integridad.
+### Integridad
+Los archivos .sha256 adjuntos permiten verificar los binarios.
 
-### Estado
-La compilación y las pruebas automatizadas del núcleo se ejecutan antes de publicar. Esta versión todavía requiere pruebas visuales y de jugabilidad manuales en Windows.
+### Estado de calidad
+Windows verifica la compilación y los tests del núcleo. Android compila con Gradle/NDK y comprueba que el APK incluya la biblioteca nativa ARM64. Pendientes: pruebas manuales en teléfono, respuesta táctil y audio.
