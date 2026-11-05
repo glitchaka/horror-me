@@ -1,0 +1,300 @@
+#include "horror/Session.hpp"
+#include <algorithm>
+#include <array>
+#include <cmath>
+#include <limits>
+#include <queue>
+#include <utility>
+
+namespace horror {
+namespace {
+constexpr int KeyEnter=13, KeyEscape=27, KeyTab=9, KeyShift=16;
+constexpr int KeyLeft=37, KeyUp=38, KeyRight=39, KeyDown=40;
+constexpr std::array<int,5> Sequence{2,0,3,1,2};
+constexpr std::array<const char*,4> Names{"DEPURAR","COMPILAR","VERIFICAR","ENTREGAR"};
+}
+GameSession::GameSession()=default;
+int GameSession::randomInt(int low,int high) {
+    return std::uniform_int_distribution<int>(low,high)(random_);
+}
+void GameSession::inform(std::string text,double seconds) {
+    notification_=std::move(text);
+    notificationSeconds_=seconds;
+}
+void GameSession::sound(SoundEvent event) { pendingSounds_.push_back(event); }
+std::vector<SoundEvent> GameSession::drainSounds() {
+    std::vector<SoundEvent> current;
+    current.swap(pendingSounds_);
+    return current;
+}
+Vec2 GameSession::objective() const {
+    return completed_<5?terminals_[activeTerminal_].position:exit_;
+}
+std::string GameSession::objectiveName() const {
+    if(completed_>=5) return "RECHAZAR LA REVISION FINAL";
+    return std::string("SELLAR: ")+Names[activeTerminal_];
+}
+bool GameSession::objectiveNearby() const {
+    return distance(player_,objective())<1.4&&maze_.visible(player_,objective());
+}
+void GameSession::placeObjects() {
+    const auto floors=maze_.floors();
+    std::vector<Vec2> chosen;
+    for(int i=0;i<4;++i) {
+        double best=-1e12;
+        Vec2 selected=player_;
+        for(Vec2 p:floors) {
+            double nearest=distance(p,player_);
+            for(Vec2 other:chosen) nearest=std::min(nearest,distance(p,other));
+            const double score=nearest+double(noiseHash(cell(p.x),cell(p.y),i)%100)/320.0;
+            if(nearest>3&&score>best) {
+                best=score;
+                selected=p;
+            }
+        }
+        chosen.push_back(selected);
+        terminals_[i]={selected,i};
+    }
+    exit_=maze_.nearest({MapW/2.0,MapH/2.0});
+    double best=std::numeric_limits<double>::infinity();
+    for(Vec2 p:floors) {
+        if(distance(p,player_)<3) continue;
+        bool nearTerminal=false;
+        for(const auto& t:terminals_)
+            if(distance(p,t.position)<2.3) nearTerminal=true;
+        if(nearTerminal) continue;
+        const double score=distance(p,{MapW/2.0,MapH/2.0});
+        if(score<best) { best=score;exit_=p; }
+    }
+    revisor_=maze_.farthest(player_);
+    chaseClock_=0;
+}
+void GameSession::start() {
+    completed_=0;anchors_=2;rewrites_=0;
+    activeTerminal_=Sequence[0];defeatCause_.clear();
+    pressure_=9;rewriteSeconds_=33;elapsed_=0;
+    scanSeconds_=scanCooldown_=anchorSeconds_=0;
+    interaction_=wrongCooldown_=chaseClock_=hitSeconds_=shake_=0;
+    player_={1.5,1.5};heading_=.25;
+    maze_.regenerate(random_);
+    placeObjects();
+    phase_=Phase::Playing;
+    inform("CONTRATO ABIERTO. CUMPLE 5 ENTREGAS.",5);
+    sound(SoundEvent::Rewrite);
+}
+void GameSession::rewrite() {
+    if(anchorSeconds_>0) {
+        rewriteSeconds_=12;
+        inform("CRITERIO ANCLADO. CAMBIO RECHAZADO.");
+        return;
+    }
+    const Vec2 previous=player_;
+    maze_.regenerate(random_);
+    player_=maze_.nearest(previous);
+    placeObjects();
+    rewriteSeconds_=std::max(18.0,29.0-completed_*2.0);
+    interaction_=0;scanSeconds_=0; ++rewrites_;
+    activeTerminal_=(activeTerminal_+randomInt(1,3))%4;
+    wrongCooldown_=2.5;
+    shake_=1.0;
+    pressure_=std::min(100.0,pressure_+3.0);
+    inform(std::string("NUEVA PRIORIDAD: ")+Names[activeTerminal_],5);
+    sound(SoundEvent::Rewrite);
+}
+void GameSession::complete() {
+    ++completed_;
+    if(completed_<5) activeTerminal_=Sequence[completed_];
+    interaction_=0;
+    pressure_=std::max(0.0,pressure_-17.0);
+    anchors_=std::min(3,anchors_+1);
+    rewriteSeconds_=std::max(rewriteSeconds_,12.0);
+    shake_=.16;
+    if(completed_==5) {
+        inform("LA ULTIMA ORDEN ES IMPOSIBLE. BUSCA EL NUCLEO.",6);
+        rewriteSeconds_=1e6;
+    } else inform("ACEPTADO... HASTA LA SIGUIENTE REVISION.",4);
+    sound(SoundEvent::Seal);
+}
+void GameSession::lose(std::string cause) {
+    phase_=Phase::Defeat;
+    defeatCause_=std::move(cause);
+    sound(SoundEvent::Defeat);
+}
+void GameSession::win() {
+    phase_=Phase::Victory;
+    sound(SoundEvent::Victory);
+}
+void GameSession::move(const Input& input,double dt) {
+    if(input.held(KeyLeft)) heading_=wrapAngle(heading_-2.1*dt);
+    if(input.held(KeyRight)) heading_=wrapAngle(heading_+2.1*dt);
+    heading_=wrapAngle(heading_+std::clamp(input.mouseDeltaX,-100.0,100.0)*.0032);
+    const Vec2 forward{std::cos(heading_),std::sin(heading_)};
+    const Vec2 sideways{-forward.y,forward.x};
+    Vec2 velocity{};
+    if(input.held('W')||input.held(KeyUp)) {
+        velocity.x+=forward.x;velocity.y+=forward.y;
+    }
+    if(input.held('S')||input.held(KeyDown)) {
+        velocity.x-=forward.x;velocity.y-=forward.y;
+    }
+    if(input.held('D')) {
+        velocity.x+=sideways.x;velocity.y+=sideways.y;
+    }
+    if(input.held('A')) {
+        velocity.x-=sideways.x;velocity.y-=sideways.y;
+    }
+    const double norm=length(velocity);
+    if(norm>1e-5) {
+        const double step=(input.held(KeyShift)?3.75:2.55)*dt/norm;
+        if(maze_.circleFree(player_.x+velocity.x*step,player_.y))
+            player_.x+=velocity.x*step;
+        if(maze_.circleFree(player_.x,player_.y+velocity.y*step))
+            player_.y+=velocity.y*step;
+        if(input.held(KeyShift)) pressure_+=dt*.16;
+    }
+}
+void GameSession::chase(double dt) {
+    chaseClock_-=dt;
+    if(chaseClock_>0) return;
+    chaseClock_+=.10;
+    const int sx=cell(revisor_.x),sy=cell(revisor_.y);
+    const int gx=cell(player_.x),gy=cell(player_.y);
+    if(!maze_.open(sx,sy)||!maze_.open(gx,gy)) {
+        revisor_=maze_.nearest(revisor_);
+        return;
+    }
+    std::array<std::array<int,MapW>,MapH> distances{};
+    for(auto& row:distances) row.fill(-1);
+    std::queue<std::pair<int,int>> queue;
+    queue.emplace(gx,gy);
+    distances[gy][gx]=0;
+    constexpr int dx[4]={1,-1,0,0};
+    constexpr int dy[4]={0,0,1,-1};
+    while(!queue.empty()) {
+        auto [x,y]=queue.front();queue.pop();
+        for(int dir=0;dir<4;++dir) {
+            const int xx=x+dx[dir],yy=y+dy[dir];
+            if(!maze_.open(xx,yy)||distances[yy][xx]!=-1) continue;
+            distances[yy][xx]=distances[y][x]+1;
+            queue.emplace(xx,yy);
+        }
+    }
+    const int here=distances[sy][sx];
+    if(here<0) {
+        revisor_=maze_.nearest(revisor_);
+        return;
+    }
+    Vec2 target=here==0?player_:Vec2{sx+.5,sy+.5};
+    int best=here;
+    for(int dir=0;dir<4;++dir) {
+        const int x=sx+dx[dir],y=sy+dy[dir];
+        if(maze_.open(x,y)&&distances[y][x]>=0&&distances[y][x]<best) {
+            best=distances[y][x];
+            target={x+.5,y+.5};
+        }
+    }
+    const Vec2 difference{target.x-revisor_.x,target.y-revisor_.y};
+    const double magnitude=length(difference);
+    if(magnitude>1e-5) {
+        const double speed=.085*(1.0+completed_*.17+pressure_*.004);
+        const double step=std::min(speed,magnitude);
+        const Vec2 next{revisor_.x+difference.x*step/magnitude,
+                        revisor_.y+difference.y*step/magnitude};
+        if(maze_.circleFree(next.x,next.y,.12)) revisor_=next;
+    }
+}
+void GameSession::pauseOnFocusLoss() {
+    if(phase_==Phase::Playing) phase_=Phase::Paused;
+}
+void GameSession::update(double dt,const Input& input) {
+    dt=std::clamp(dt,0.0,.05);
+    if(phase_==Phase::Menu) {
+        elapsed_+=dt;
+        if(input.pressed(KeyEnter)) start();
+        return;
+    }
+    if(phase_==Phase::Defeat||phase_==Phase::Victory) {
+        if(input.pressed(KeyEnter)) start();
+        else if(input.pressed(KeyEscape)) phase_=Phase::Menu;
+        return;
+    }
+    if(phase_==Phase::Paused) {
+        if(input.pressed('P')||input.pressed(KeyEscape))
+            phase_=Phase::Playing;
+        return;
+    }
+    if(input.pressed('P')||input.pressed(KeyEscape)) {
+        phase_=Phase::Paused;
+        return;
+    }
+    elapsed_+=dt;
+    notificationSeconds_=std::max(0.0,notificationSeconds_-dt);
+    hitSeconds_=std::max(0.0,hitSeconds_-dt);
+    scanSeconds_=std::max(0.0,scanSeconds_-dt);
+    scanCooldown_=std::max(0.0,scanCooldown_-dt);
+    anchorSeconds_=std::max(0.0,anchorSeconds_-dt);
+    wrongCooldown_=std::max(0.0,wrongCooldown_-dt);
+    shake_=std::max(0.0,shake_-dt*1.75);
+    move(input,dt);
+    if(input.pressed('F')&&scanCooldown_<=0) {
+        scanSeconds_=3.6;
+        scanCooldown_=7;
+        pressure_=std::min(100.0,pressure_+1.0);
+        inform("ESCANEO: DIRECCION DEL OBJETIVO EXPUESTA.",2.7);
+        sound(SoundEvent::Scan);
+    }
+    if(input.pressed('Q')) {
+        if(anchors_>0&&anchorSeconds_<=0) {
+            --anchors_;
+            anchorSeconds_=10;
+            rewriteSeconds_=std::max(rewriteSeconds_,10.0);
+            revisor_=maze_.farthest(player_);
+            pressure_=std::max(0.0,pressure_-7.0);
+            inform("ANCLA ACTIVA: DIEZ SEGUNDOS DE ESTABILIDAD.",3.2);
+            sound(SoundEvent::Anchor);
+        } else inform("SIN ANCLAS DISPONIBLES.",2);
+    }
+    const bool nearby=objectiveNearby();
+    if(completed_<5) {
+        if(nearby&&input.held('E')) {
+            interaction_+=dt;
+            if(interaction_>=1.18) complete();
+        } else interaction_=std::max(0.0,interaction_-dt*2.2);
+        if(!nearby&&input.held('E')&&wrongCooldown_<=0) {
+            for(const auto& terminal:terminals_) {
+                if(terminal.id==activeTerminal_) continue;
+                if(distance(player_,terminal.position)<1.3&&
+                   maze_.visible(player_,terminal.position)) {
+                    wrongCooldown_=3.5;
+                    pressure_+=8;
+                    inform("TERMINAL INCORRECTA. COSTE DE RETRABAJO.",3);
+                    sound(SoundEvent::Damage);
+                    break;
+                }
+            }
+        }
+    } else if(nearby&&input.pressed('R')) {
+        win();
+        return;
+    }
+    rewriteSeconds_-=dt;
+    if(rewriteSeconds_<=0&&completed_<5) rewrite();
+    chase(dt);
+    const double near=distance(player_,revisor_);
+    if(near<4.5) pressure_+=dt*(4.5-near)*.55;
+    pressure_+=dt*(.23+completed_*.06);
+    if(completed_>=5&&near<8&&maze_.visible(player_,revisor_))
+        pressure_+=dt*1.7;
+    if(near<.55&&hitSeconds_<=0) {
+        pressure_+=23;
+        hitSeconds_=1.5;
+        shake_=1.0;
+        revisor_=maze_.farthest(player_);
+        inform("EL REVISOR TE ENCONTRO. RECUPERA EL CONTROL.",4);
+        sound(SoundEvent::Damage);
+        if(pressure_>=100) defeatCause_="EL REVISOR TE ALCANZO";
+    }
+    if(pressure_>=100)
+        lose(defeatCause_.empty()?"LA PRESION DEL SISTEMA TE CONSUMIO":defeatCause_);
+}
+}
