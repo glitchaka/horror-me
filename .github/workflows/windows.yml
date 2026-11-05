@@ -1,0 +1,23 @@
+name: Native Windows CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  windows-native:
+    runs-on: windows-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure
+        run: cmake -S . -B build -DBUILD_TESTING=ON
+      - name: Build
+        run: cmake --build build --config Release --parallel
+      - name: Verify game and core tests
+        run: |
+          if (-not (Test-Path "build/Release/HorrorMe.exe")) {
+            throw "HorrorMe.exe no fue creado"
+          }
+          ctest --test-dir build --config Release --output-on-failure
