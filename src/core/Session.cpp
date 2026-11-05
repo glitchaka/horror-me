@@ -76,15 +76,14 @@ void GameSession::placeObjects() {
         if(score>exitScore){exitScore=score;exit_=p;}
     }
     // The Revisor begins outside the player's immediate field of vision.
-    revisor_=maze_.farthest(player_);
+    revisorAI_.relocate(maze_.farthest(player_));
     double enemyScore=-1e20;
     for(const Vec2 p:floors) {
         const int steps=maze_.stepsBetween(player_,p);
         if(steps<11||steps>27||maze_.visible(player_,p))continue;
         const double score=-std::abs(steps-18)*1.4+distance(player_,p)*.16;
-        if(score>enemyScore){enemyScore=score;revisor_=p;}
+        if(score>enemyScore){enemyScore=score;revisorAI_.relocate(p);}
     }
-    chaseClock_=0;
 }
 void GameSession::resetDeadline() {
     if(completed_>=5){rewriteSeconds_=1e6;return;}
@@ -98,7 +97,7 @@ void GameSession::start() {
     activeTerminal_=Sequence[0];defeatCause_.clear();
     pressure_=9;rewriteSeconds_=33;elapsed_=0;
     scanSeconds_=scanCooldown_=anchorSeconds_=0;
-    interaction_=wrongCooldown_=chaseClock_=hitSeconds_=shake_=0;
+    interaction_=wrongCooldown_=hitSeconds_=shake_=0;
     player_={1.5,1.5};heading_=.25;
     maze_.regenerate(random_);
     placeObjects();
@@ -115,7 +114,7 @@ void GameSession::rewrite() {
     }
     // Preserve player position and current objective while physically
     // altering corridors. Every floor tile remains reachable.
-    std::vector<Vec2> safe{player_,revisor_,exit_};
+    std::vector<Vec2> safe{player_,revisorAI_.position(),exit_};
     for(const auto& terminal:terminals_)safe.push_back(terminal.position);
     maze_.distort(random_,safe,7);
     interaction_=0;
@@ -181,56 +180,6 @@ void GameSession::move(const Input& input,double dt) {
         if(input.held(KeyShift)) pressure_+=dt*.16;
     }
 }
-void GameSession::chase(double dt) {
-    chaseClock_-=dt;
-    if(chaseClock_>0) return;
-    chaseClock_+=.10;
-    const int sx=cell(revisor_.x),sy=cell(revisor_.y);
-    const int gx=cell(player_.x),gy=cell(player_.y);
-    if(!maze_.open(sx,sy)||!maze_.open(gx,gy)) {
-        revisor_=maze_.nearest(revisor_);
-        return;
-    }
-    std::array<std::array<int,MapW>,MapH> distances{};
-    for(auto& row:distances) row.fill(-1);
-    std::queue<std::pair<int,int>> queue;
-    queue.emplace(gx,gy);
-    distances[gy][gx]=0;
-    constexpr int dx[4]={1,-1,0,0};
-    constexpr int dy[4]={0,0,1,-1};
-    while(!queue.empty()) {
-        auto [x,y]=queue.front();queue.pop();
-        for(int dir=0;dir<4;++dir) {
-            const int xx=x+dx[dir],yy=y+dy[dir];
-            if(!maze_.open(xx,yy)||distances[yy][xx]!=-1) continue;
-            distances[yy][xx]=distances[y][x]+1;
-            queue.emplace(xx,yy);
-        }
-    }
-    const int here=distances[sy][sx];
-    if(here<0) {
-        revisor_=maze_.nearest(revisor_);
-        return;
-    }
-    Vec2 target=here==0?player_:Vec2{sx+.5,sy+.5};
-    int best=here;
-    for(int dir=0;dir<4;++dir) {
-        const int x=sx+dx[dir],y=sy+dy[dir];
-        if(maze_.open(x,y)&&distances[y][x]>=0&&distances[y][x]<best) {
-            best=distances[y][x];
-            target={x+.5,y+.5};
-        }
-    }
-    const Vec2 difference{target.x-revisor_.x,target.y-revisor_.y};
-    const double magnitude=length(difference);
-    if(magnitude>1e-5) {
-        const double speed=.085*(1.0+completed_*.17+pressure_*.004);
-        const double step=std::min(speed,magnitude);
-        const Vec2 next{revisor_.x+difference.x*step/magnitude,
-                        revisor_.y+difference.y*step/magnitude};
-        if(maze_.circleFree(next.x,next.y,.12)) revisor_=next;
-    }
-}
 void GameSession::pauseOnFocusLoss() {
     if(phase_==Phase::Playing) phase_=Phase::Paused;
 }
@@ -276,7 +225,7 @@ void GameSession::update(double dt,const Input& input) {
             --anchors_;
             anchorSeconds_=10;
             rewriteSeconds_=std::max(rewriteSeconds_,10.0);
-            revisor_=maze_.farthest(player_);
+            revisorAI_.relocate(maze_.farthest(player_));
             pressure_=std::max(0.0,pressure_-7.0);
             inform("ANCLA ACTIVA: DIEZ SEGUNDOS DE ESTABILIDAD.",3.2);
             sound(SoundEvent::Anchor);
@@ -307,17 +256,17 @@ void GameSession::update(double dt,const Input& input) {
     }
     rewriteSeconds_-=dt;
     if(rewriteSeconds_<=0&&completed_<5) rewrite();
-    chase(dt);
-    const double near=distance(player_,revisor_);
+    revisorAI_.update(maze_,player_,pressure_,completed_,dt);
+    const double near=distance(player_,revisorAI_.position());
     if(near<4.5) pressure_+=dt*(4.5-near)*.55;
     pressure_+=dt*(.23+completed_*.06);
-    if(completed_>=5&&near<8&&maze_.visible(player_,revisor_))
+    if(completed_>=5&&near<8&&maze_.visible(player_,revisorAI_.position()))
         pressure_+=dt*1.7;
     if(near<.55&&hitSeconds_<=0) {
         pressure_+=23;
         hitSeconds_=1.5;
         shake_=1.0;
-        revisor_=maze_.farthest(player_);
+        revisorAI_.relocate(maze_.farthest(player_));
         inform("EL REVISOR TE ENCONTRO. RECUPERA EL CONTROL.",4);
         sound(SoundEvent::Damage);
         if(pressure_>=100) defeatCause_="EL REVISOR TE ALCANZO";
