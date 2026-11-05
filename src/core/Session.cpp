@@ -38,36 +38,60 @@ bool GameSession::objectiveNearby() const {
     return distance(player_,objective())<1.4&&maze_.visible(player_,objective());
 }
 void GameSession::placeObjects() {
+    // Place terminals by route length, not geometric distance.
+    // The player must be able to make meaningful progress before a revision.
     const auto floors=maze_.floors();
     std::vector<Vec2> chosen;
+    constexpr std::array<int,4> desiredSteps{9,12,15,18};
     for(int i=0;i<4;++i) {
-        double best=-1e12;
+        double best=-1e20;
         Vec2 selected=player_;
-        for(Vec2 p:floors) {
+        for(const Vec2 p:floors) {
+            const int steps=maze_.stepsBetween(player_,p);
+            if(steps<5)continue;
             double nearest=distance(p,player_);
-            for(Vec2 other:chosen) nearest=std::min(nearest,distance(p,other));
-            const double score=nearest+double(noiseHash(cell(p.x),cell(p.y),i)%100)/320.0;
-            if(nearest>3&&score>best) {
-                best=score;
-                selected=p;
-            }
+            for(const Vec2 other:chosen)
+                nearest=std::min(nearest,distance(p,other));
+            if(nearest<3.0)continue;
+            const double jitter=double(noiseHash(cell(p.x),cell(p.y),i)%100)/100.0;
+            const double score=-std::abs(steps-desiredSteps[static_cast<std::size_t>(i)])*2.0
+                               +std::min(nearest,7.0)*.6+jitter;
+            if(score>best){best=score;selected=p;}
         }
         chosen.push_back(selected);
-        terminals_[i]={selected,i};
+        terminals_[static_cast<std::size_t>(i)]={selected,i};
     }
+    // The central exit is chosen before revisions and remains stable.
     exit_=maze_.nearest({MapW/2.0,MapH/2.0});
-    double best=std::numeric_limits<double>::infinity();
-    for(Vec2 p:floors) {
-        if(distance(p,player_)<3) continue;
-        bool nearTerminal=false;
-        for(const auto& t:terminals_)
-            if(distance(p,t.position)<2.3) nearTerminal=true;
-        if(nearTerminal) continue;
-        const double score=distance(p,{MapW/2.0,MapH/2.0});
-        if(score<best) { best=score;exit_=p; }
+    double exitScore=-1e20;
+    for(const Vec2 p:floors) {
+        const int steps=maze_.stepsBetween(player_,p);
+        if(steps<7)continue;
+        bool overlaps=false;
+        for(const auto& terminal:terminals_)
+            if(distance(p,terminal.position)<2.5)overlaps=true;
+        if(overlaps)continue;
+        const double score=-std::abs(steps-14)*1.5
+                           -distance(p,{MapW/2.0,MapH/2.0})*.12;
+        if(score>exitScore){exitScore=score;exit_=p;}
     }
+    // The Revisor begins outside the player's immediate field of vision.
     revisor_=maze_.farthest(player_);
+    double enemyScore=-1e20;
+    for(const Vec2 p:floors) {
+        const int steps=maze_.stepsBetween(player_,p);
+        if(steps<11||steps>27||maze_.visible(player_,p))continue;
+        const double score=-std::abs(steps-18)*1.4+distance(player_,p)*.16;
+        if(score>enemyScore){enemyScore=score;revisor_=p;}
+    }
     chaseClock_=0;
+}
+void GameSession::resetDeadline() {
+    if(completed_>=5){rewriteSeconds_=1e6;return;}
+    const int steps=maze_.stepsBetween(player_,objective());
+    // 2.55 tiles/second is the walking speed. Extra time covers
+    // exploration, reaction, the Revisor, and imperfect routing.
+    rewriteSeconds_=std::clamp(25.0+std::max(0,steps)*1.15,32.0,64.0);
 }
 void GameSession::start() {
     completed_=0;anchors_=2;rewrites_=0;
@@ -78,6 +102,7 @@ void GameSession::start() {
     player_={1.5,1.5};heading_=.25;
     maze_.regenerate(random_);
     placeObjects();
+    resetDeadline();
     phase_=Phase::Playing;
     inform("CONTRATO ABIERTO. CUMPLE 5 ENTREGAS.",5);
     sound(SoundEvent::Rewrite);
@@ -88,17 +113,20 @@ void GameSession::rewrite() {
         inform("CRITERIO ANCLADO. CAMBIO RECHAZADO.");
         return;
     }
-    const Vec2 previous=player_;
-    maze_.regenerate(random_);
-    player_=maze_.nearest(previous);
-    placeObjects();
-    rewriteSeconds_=std::max(18.0,29.0-completed_*2.0);
-    interaction_=0;scanSeconds_=0; ++rewrites_;
+    // Preserve player position and current objective while physically
+    // altering corridors. Every floor tile remains reachable.
+    std::vector<Vec2> safe{player_,revisor_,exit_};
+    for(const auto& terminal:terminals_)safe.push_back(terminal.position);
+    maze_.distort(random_,safe,7);
+    interaction_=0;
+    scanSeconds_=0;
+    ++rewrites_;
     activeTerminal_=(activeTerminal_+randomInt(1,3))%4;
+    resetDeadline();
     wrongCooldown_=2.5;
     shake_=1.0;
     pressure_=std::min(100.0,pressure_+3.0);
-    inform(std::string("NUEVA PRIORIDAD: ")+Names[activeTerminal_],5);
+    inform(std::string("CRITERIO MODIFICADO: ")+Names[activeTerminal_],5);
     sound(SoundEvent::Rewrite);
 }
 void GameSession::complete() {
@@ -107,12 +135,12 @@ void GameSession::complete() {
     interaction_=0;
     pressure_=std::max(0.0,pressure_-17.0);
     anchors_=std::min(3,anchors_+1);
-    rewriteSeconds_=std::max(rewriteSeconds_,12.0);
+    resetDeadline();
     shake_=.16;
-    if(completed_==5) {
+    if(completed_==5)
         inform("LA ULTIMA ORDEN ES IMPOSIBLE. BUSCA EL NUCLEO.",6);
-        rewriteSeconds_=1e6;
-    } else inform("ACEPTADO... HASTA LA SIGUIENTE REVISION.",4);
+    else
+        inform("ACEPTADO... HASTA LA SIGUIENTE REVISION.",4);
     sound(SoundEvent::Seal);
 }
 void GameSession::lose(std::string cause) {
