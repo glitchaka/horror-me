@@ -5,6 +5,7 @@ add_executable(HorrorMe WIN32
     src/platform/WinApp.cpp
     src/platform/WinAudio.cpp
     src/core/Maze.cpp
+    src/core/RevisorAI.cpp
     src/core/Session.cpp
     src/render/Canvas.cpp
     src/render/SceneRenderer.cpp
