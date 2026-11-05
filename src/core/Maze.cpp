@@ -76,6 +76,37 @@ Vec2 Maze::farthest(Vec2 target) const {
         return distance(a,target)<distance(b,target);
     });
 }
+std::vector<Vec2> Maze::shortestPath(Vec2 from,Vec2 to) const {
+    const int sx=cell(from.x),sy=cell(from.y),tx=cell(to.x),ty=cell(to.y);
+    if(!open(sx,sy)||!open(tx,ty))return {};
+    struct Parent { int x{-1},y{-1}; };
+    std::array<std::array<Parent,MapW>,MapH> parent{};
+    std::queue<std::pair<int,int>> queue;
+    queue.emplace(sx,sy);
+    parent[sy][sx]={sx,sy};
+    constexpr int dx[4]={1,-1,0,0},dy[4]={0,0,1,-1};
+    while(!queue.empty()) {
+        const auto [x,y]=queue.front();queue.pop();
+        if(x==tx&&y==ty)break;
+        for(int i=0;i<4;++i) {
+            const int nx=x+dx[i],ny=y+dy[i];
+            if(!open(nx,ny)||parent[ny][nx].x!=-1)continue;
+            parent[ny][nx]={x,y};
+            queue.emplace(nx,ny);
+        }
+    }
+    if(parent[ty][tx].x<0)return {};
+    std::vector<Vec2> path;
+    int x=tx,y=ty;
+    for(int count=0;count<MapW*MapH;++count) {
+        path.push_back({x+.5,y+.5});
+        if(x==sx&&y==sy)break;
+        const auto prev=parent[y][x];
+        x=prev.x;y=prev.y;
+    }
+    std::reverse(path.begin(),path.end());
+    return path;
+}
 int Maze::stepsBetween(Vec2 from,Vec2 to) const {
     const int sx=cell(from.x),sy=cell(from.y),tx=cell(to.x),ty=cell(to.y);
     if(!open(sx,sy)||!open(tx,ty))return -1;
