@@ -3,7 +3,17 @@ name: Native Windows CI
 on:
   push:
     branches: [main]
+    paths:
+      - "src/**"
+      - "include/**"
+      - "tests/**"
+      - "CMakeLists.txt"
+      - ".github/workflows/windows.yml"
   pull_request:
+
+concurrency:
+  group: native-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   windows-native:

@@ -1,47 +1,57 @@
-# Arquitectura y límites
+# Arquitectura de horror-me
 
-**Diseño:** C++20, sin dependencias web, ejecutable Windows nativo.
+**Objetivo:** un juego nativo C++20 para Windows, fácil de ampliar sin convertirlo en un `main.cpp` monolítico.
 
-## Capas y dependencias
+## Dependencias
 
 ```
-WinApp (Win32)  ---> GameSession <--- Maze
-       |                  |
-       v                  v
-     Input               Types
-       |
-       +---> SceneRenderer ---> Canvas
-       +---> HudRenderer   ---> Canvas
-       +---> IAudio <--- WinAudio (WinMM)
+       +-----------------------------+
+       | WinApp / Win32 / Game loop  |
+       +-----------------------------+
+        |         |         |       |
+      Input    GameSession   |     IAudio <--- WinAudio / WinMM
+                  |          |
+            +-----+-----+    +--> SceneRenderer --> Canvas
+            |           |    +--> HudRenderer   --> Canvas
+           Maze      RevisorAI
+            ^           |
+            +-----------+
 ```
 
-- **Maze**: genera y consulta la topología. No sabe nada de ventanas, enemigos ni sonido.
-- **GameSession**: administra máquina de estados, misiones, presión, persecución y eventos de audio. Solo recibe `Input` y tiempo; no llama a la API de Windows ni dibuja.
-- **Canvas**: operaciones de framebuffer y fuente rasterizada; desconoce las reglas del juego.
-- **SceneRenderer**: raycasting y sprites. Lee una vista de solo lectura de `GameSession`.
-- **HudRenderer**: menús, indicadores y mensajes. No altera la partida.
-- **IAudio**: contrato de audio intercambiable; `WinAudio` es el adaptador WinMM.
-- **WinApp**: ciclo de vida, ventana, mensajes, entrada y presentación GDI; integra los módulos.
+## Responsabilidades
 
-## Criterios SOLID
+- **Maze**: estructura del mapa, búsqueda de rutas, celdas transitables y mutaciones locales que conservan conectividad.
+- **RevisorAI**: posición del perseguidor, búsqueda de caminos, velocidad y desplazamiento; no gestiona ventanas, audio, objetivos ni menús.
+- **GameSession**: orquesta reglas, criterios, entregas, presión, eventos sonoros, recompensas, penalizaciones y estados; no dibuja.
+- **Input**: distingue teclas mantenidas de pulsaciones nuevas. Permite una única responsabilidad por control.
+- **Canvas**: framebuffer RGB y rasterización de tipografía propia.
+- **SceneRenderer**: raycasting de muros, sprites y efectos visuales; solo consulta el estado.
+- **HudRenderer**: presenta información, menús, plano y mensajes; solo consulta el estado.
+- **IAudio**: interfaz de audio abstracta; **WinAudio** utiliza WinMM y una cola de buffers PCM.
+- **WinApp**: adaptación Windows, ciclo de vida, temporizador, teclado, ratón, presentación GDI e integración.
 
-- **S (responsabilidad única):** simulación, generación, dibujo, GUI y audio viven en módulos separados.
-- **O (abierto/cerrado):** agregar otra salida de audio mediante `IAudio`, sin cambiar `GameSession`.
-- **L (sustitución):** toda implementación de `IAudio` satisface los mismos métodos.
-- **I (segregación):** `IAudio` expone únicamente operaciones de sonido, no controles gráficos ni de juego.
-- **D (inversión):** la capa de aplicación depende del contrato `IAudio`; el núcleo produce eventos y no depende de WinMM.
+## SOLID — aplicación verificable
 
-Estos principios son decisiones arquitectónicas concretas, no una garantía de que cada detalle de implementación sea perfecto.
+- **S:** módulos separados para topología, perseguidor, reglas, render, HUD y adaptadores nativos.
+- **O:** otra implementación de `IAudio` puede sustituir a WinAudio; el núcleo no tiene por qué cambiar.
+- **L:** los adaptadores de audio deben respetar `IAudio`.
+- **I:** `IAudio` solo expone control de reproducción, eventos, tensión y silencio.
+- **D:** WinApp invoca el contrato de sonido; GameSession emite `SoundEvent`, sin referenciar WinMM.
 
-## Invariantes de jugabilidad
+Estas decisiones aplican los principios al alcance actual; no implican que toda la arquitectura esté exenta de posibilidades de mejora.
 
-- Los cambios de mapa siempre reubican al jugador en una casilla transitable.
-- Los terminales y el núcleo ocupan casillas transitables.
-- El núcleo permanece estable en la fase final; no hay reconfiguraciones que impidan terminar.
-- El input se consume como estado actual + flanco de pulsación para evitar acciones duplicadas.
-- Las teclas de movimiento nunca activan ataques (no hay mecánica de disparos).
-- El puntero se libera cuando la aplicación pierde el foco o entra en pausa.
+## Invariantes
 
-## Estado de pruebas
+1. El jugador, El Revisor y cada terminal están en una casilla transitable.
+2. Todos los espacios transitables permanecen conectados tras una distorsión.
+3. Las revisiones locales no mueven arbitrariamente ni al jugador ni al objetivo.
+4. El plazo de revisión se ajusta a la distancia por la red de pasillos.
+5. Una vez completadas cinco entregas, el núcleo permanece accesible y no se generan nuevas revisiones.
+6. Las acciones discretas leen pulsaciones nuevas; mantener teclas de movimiento no dispara otra acción.
+7. Las actualizaciones de la simulación tienen paso de tiempo limitado y están separadas de la presentación.
 
-La implementación debe subirse al repositorio **antes** de compilar o ejecutar por primera vez, de acuerdo con el flujo de trabajo solicitado. Pendiente: compilación Windows, análisis estático, validación de navegación y equilibrio de dificultad.
+## Verificación
+
+`tests/CoreTests.cpp` prueba laberintos de diferentes semillas, mutaciones sin pérdida de acceso, avance del perseguidor y estados de partida. `.github/workflows/windows.yml` compila juego y pruebas con MSVC Release y ejecuta CTest.
+
+Pendiente: pruebas manuales de interacción, experiencia audiovisual, accesibilidad, dificultad y estrés sostenido.

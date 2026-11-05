@@ -1,42 +1,57 @@
 # PROTOCOLO: NO CONFORME
 
-Videojuego nativo de horror sistémico en primera persona. Código fuente C++20 para Windows, con renderizado por software mediante Win32/GDI y audio procedural WinMM. **No usa HTML, JavaScript, WebView ni recursos gráficos externos.**
+Videojuego nativo de horror sistémico en primera persona desarrollado con **C++20** para Windows. Renderizado por software Win32/GDI, audio procedural WinMM y generación de laberintos por código. **No contiene HTML, CSS, JavaScript ni WebView.**
 
-## Concepto
-Un laberinto laboral imposible que se reescribe mientras intentas cumplir cinco entregas. El Revisor persigue, las prioridades cambian y la presión se acumula. Dispones de un escáner y anclas de estabilidad. La última orden no se resuelve obedeciendo: se resuelve diciendo **NO**.
+## La experiencia
 
-## Compilación (Windows)
+Debes completar cinco entregas dentro de un laberinto de pasillos opresivos. El Revisor te persigue, los criterios se contradicen y parte del espacio se transforma mientras trabajas. Tu fortaleza no es disparar: es observar, orientarte, estabilizar el mundo y decidir cuándo rechazar una orden.
 
-Requiere CMake 3.21+ y un compilador C++20 (MSVC o MinGW con Win32 y WinMM).
+Hay seis actos narrativos, escáner direccional, anclas de estabilidad, persecución mediante búsqueda de caminos, acumulación de presión, mensajes del sistema y un desenlace jugable.
+
+## Compilar en Windows
+
+Requisitos: Windows 10/11, CMake 3.21+ y compilador MSVC con soporte de C++20.
 
 ```powershell
-cmake -S . -B build
+cmake -S . -B build -DBUILD_TESTING=ON
 cmake --build build --config Release
+ctest --test-dir build -C Release --output-on-failure
 ```
 
-Con generadores multiconfiguración, el ejecutable queda en `build/Release/HorrorMe.exe` (el destino exacto depende del generador).
+Con Visual Studio, el ejecutable queda en `build/Release/HorrorMe.exe`. Para otros generadores consulta el directorio de salida indicado por CMake.
 
 ## Controles
-- `W/S`: avanzar/retroceder.
-- `A/D`: desplazamiento lateral.
-- Ratón o flechas izquierda/derecha: mirar.
-- `Shift`: correr.
-- `E`: mantener para sellar la terminal correcta.
-- `F`: escáner del objetivo.
-- `Q`: ancla temporal.
-- `Tab`: consultar el plano.
-- `P` o `Esc`: pausar o reanudar.
-- `M`: silenciar.
-- `Enter`: comenzar o reiniciar.
-- `R`: rechazar la última exigencia en el núcleo.
 
-## Organización
-- `include/horror/`: contratos y modelos públicos.
-- `src/core/`: generación del laberinto y reglas del juego, independientes de Windows.
-- `src/render/`: framebuffer, raycasting y HUD por software.
-- `src/platform/`: ventana, entrada, presentación GDI y audio WinMM.
-- `docs/ARCHITECTURE.md`: responsabilidades, dependencias y decisiones.
-- `CMakeLists.txt`: compilación reproducible.
+| Tecla | Función |
+|---|---|
+| W / S | Avanzar / retroceder |
+| A / D | Desplazamiento lateral |
+| Ratón o flechas izquierda / derecha | Girar |
+| Shift | Correr |
+| E (mantener) | Sellar la terminal correcta |
+| F | Escanear la dirección del objetivo |
+| Q | Activar un ancla |
+| Tab (mantener) | Consultar el plano |
+| P / Esc | Pausar / continuar |
+| M | Silenciar |
+| Enter | Comenzar / reiniciar |
+| R (cerca del núcleo) | Rechazar la última exigencia |
 
-## Estado de esta entrega
-Refactorización modular de la primera implementación. **Subida al repositorio antes de ejecutar compilaciones o pruebas**, según el flujo de trabajo acordado. No declarar esta revisión como compilada o validada funcionalmente hasta comprobarla.
+No hay mecánicas de salto ni disparos.
+
+## Arquitectura
+
+- `include/horror/`: contratos, tipos y componentes.
+- `src/core/`: topología, navegación, perseguidor y máquina de estados, sin Win32.
+- `src/render/`: framebuffer, raycasting, sprites generados por código y HUD.
+- `src/platform/`: ventana, eventos, presentación GDI y sintetizador de audio WinMM.
+- `tests/CoreTests.cpp`: conectividad, reconfiguración de mapas, IA y estados.
+- `docs/ARCHITECTURE.md`: dependencias, invariantes y principios SOLID.
+- `docs/GAME_DESIGN.md`: fases y mecánicas de juego.
+- `.github/workflows/windows.yml`: compilación y pruebas Windows.
+
+## Calidad y límites
+
+La construcción se comprueba en GitHub Actions con MSVC Release y CTest. Las pruebas del núcleo verifican conectividad del mapa tras múltiples mutaciones, acceso a objetivos y respuesta del perseguidor.
+
+**Queda pendiente una prueba visual y de jugabilidad manual en Windows.** La compilación correcta no demuestra por sí sola que el equilibrio, la presentación y la experiencia de juego sean definitivos.
