@@ -5,12 +5,13 @@
 #include <array>
 #include <random>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace horror {
 enum class Phase { Menu, Playing, Paused, Defeat, Victory };
 enum class SoundEvent { Anchor, Scan, Seal, Damage, Rewrite, Defeat, Victory };
-struct Terminal { Vec2 position{}; int id{}; };
+struct Terminal { Vec2 position{}; int id{}; int wallX{-1},wallY{-1}; };
 
 class GameSession final {
 public:
@@ -22,9 +23,12 @@ public:
     [[nodiscard]] Vec2 player() const { return player_; }
     [[nodiscard]] Vec2 revisor() const { return revisorAI_.position(); }
     [[nodiscard]] Vec2 exit() const { return exit_; }
+    [[nodiscard]] std::pair<int,int> exitWall() const { return {exitWallX_,exitWallY_}; }
     [[nodiscard]] const std::array<Terminal,4>& terminals() const { return terminals_; }
     [[nodiscard]] Vec2 objective() const;
     [[nodiscard]] std::string objectiveName() const;
+    [[nodiscard]] int routeSteps() const;
+    [[nodiscard]] int nearbyTerminal() const;
     [[nodiscard]] const char* actName() const;
     [[nodiscard]] int activeTerminal() const { return activeTerminal_; }
     [[nodiscard]] int completed() const { return completed_; }
@@ -63,6 +67,7 @@ private:
     std::array<Terminal,4> terminals_{};
     std::vector<SoundEvent> pendingSounds_{};
     Vec2 player_{1.5,1.5},exit_{11.5,11.5};
+    int exitWallX_{-1},exitWallY_{-1};
     RevisorAI revisorAI_{};
     Phase phase_{Phase::Menu};
     double heading_{.25},pressure_{9},rewriteSeconds_{33},elapsed_{0};
