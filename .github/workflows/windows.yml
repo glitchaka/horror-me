@@ -1,4 +1,4 @@
-name: Native Windows CI
+name: Native Windows build and release
 
 on:
   push:
@@ -8,8 +8,13 @@ on:
       - "include/**"
       - "tests/**"
       - "CMakeLists.txt"
+      - "docs/RELEASE_NOTES.md"
       - ".github/workflows/windows.yml"
   pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
 
 concurrency:
   group: native-${{ github.ref }}
@@ -18,16 +23,81 @@ concurrency:
 jobs:
   windows-native:
     runs-on: windows-latest
-    timeout-minutes: 12
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-      - name: Configure
-        run: cmake -S . -B build -DBUILD_TESTING=ON
-      - name: Build
+
+      - name: Configure native x64 build
+        run: cmake -S . -B build -A x64 -DBUILD_TESTING=ON
+
+      - name: Build Release
         run: cmake --build build --config Release --parallel
-      - name: Verify game and core tests
+
+      - name: Verify executable and core tests
+        shell: pwsh
         run: |
           if (-not (Test-Path "build/Release/HorrorMe.exe")) {
-            throw "HorrorMe.exe no fue creado"
+            throw "The Windows executable was not produced"
           }
           ctest --test-dir build -C Release --output-on-failure
+          if ($LASTEXITCODE -ne 0) {
+            throw "CTest failed with exit code $LASTEXITCODE"
+          }
+
+      - name: Prepare versioned executable and checksum
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        id: package
+        shell: pwsh
+        run: |
+          $cmake = Get-Content "CMakeLists.txt" -Raw
+          $pattern = 'project\s*\(\s*HorrorMe\s+VERSION\s+(\d+\.\d+\.\d+)\s+LANGUAGES\s+CXX'
+          if ($cmake -notmatch $pattern) {
+            throw "Cannot determine the project version from CMakeLists.txt"
+          }
+          $version = $Matches[1]
+          $tag = "v$version"
+          "tag=$tag" >> $env:GITHUB_OUTPUT
+          "version=$version" >> $env:GITHUB_OUTPUT
+
+          New-Item -ItemType Directory -Force -Path "dist" | Out-Null
+          Copy-Item "build/Release/HorrorMe.exe" "dist/HorrorMe-Windows-x64.exe"
+          $hash = (Get-FileHash "dist/HorrorMe-Windows-x64.exe" -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash *HorrorMe-Windows-x64.exe" |
+            Set-Content -Path "dist/HorrorMe-Windows-x64.exe.sha256" -Encoding ascii
+
+      - name: Publish to GitHub Releases
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.package.outputs.tag }}
+          RELEASE_VERSION: ${{ steps.package.outputs.version }}
+        run: |
+          $tag = $env:RELEASE_TAG
+          $repo = $env:GITHUB_REPOSITORY
+          $exe = "dist/HorrorMe-Windows-x64.exe"
+          $hash = "dist/HorrorMe-Windows-x64.exe.sha256"
+
+          # A GitHub release is immutable for a given project version:
+          # bump VERSION in CMakeLists.txt to publish another release.
+          gh release view $tag --repo $repo --json tagName --jq .tagName 2>$null
+          if ($LASTEXITCODE -eq 0) {
+            $assets = gh release view $tag --repo $repo --json assets --jq '.assets[].name'
+            if ($LASTEXITCODE -ne 0) { throw "Could not inspect existing release $tag" }
+            if ($assets -contains "HorrorMe-Windows-x64.exe") {
+              Write-Host "Release $tag already exists. Bump the CMake project version for a new release."
+              exit 0
+            }
+            gh release upload $tag $exe $hash --repo $repo
+            if ($LASTEXITCODE -ne 0) { throw "Could not upload missing assets to $tag" }
+          }
+          else {
+            gh release create $tag $exe $hash --repo $repo --target $env:GITHUB_SHA --title "PROTOCOLO: NO CONFORME $tag" --notes-file "docs/RELEASE_NOTES.md" --latest
+            if ($LASTEXITCODE -ne 0) { throw "Failed to create GitHub Release $tag" }
+          }
+
+          $assets = gh release view $tag --repo $repo --json assets --jq '.assets[].name'
+          if ($LASTEXITCODE -ne 0 -or $assets -notcontains "HorrorMe-Windows-x64.exe") {
+            throw "Release $tag was created without the executable"
+          }
+          Write-Host "Published and verified $tag, including HorrorMe-Windows-x64.exe"

@@ -8,6 +8,12 @@ Debes completar cinco entregas dentro de un laberinto de pasillos opresivos. El 
 
 Hay seis actos narrativos, escáner direccional, anclas de estabilidad, persecución mediante búsqueda de caminos, acumulación de presión, mensajes del sistema y un desenlace jugable.
 
+## Ejecutable publicado
+
+El archivo **HorrorMe-Windows-x64.exe** se publica directamente en [GitHub Releases](https://github.com/glitchaka/horror-me/releases) cuando las pruebas de Windows pasan. No se distribuye el código como ZIP.
+
+El workflow extrae la versión de `project(HorrorMe VERSION ...)` en `CMakeLists.txt`. Para publicar otra versión, se debe aumentar esa versión y actualizar `docs/RELEASE_NOTES.md`. Una versión ya publicada no se sobrescribe silenciosamente.
+
 ## Compilar en Windows
 
 Requisitos: Windows 10/11, CMake 3.21+ y compilador MSVC con soporte de C++20.

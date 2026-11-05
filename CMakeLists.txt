@@ -1,6 +1,12 @@
 cmake_minimum_required(VERSION 3.21)
 project(HorrorMe VERSION 0.1.0 LANGUAGES CXX)
 
+# Statically link the MSVC runtime: the released .exe does not require
+# a separate Visual C++ Redistributable installation.
+if(MSVC)
+    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+endif()
+
 add_executable(HorrorMe WIN32
     src/platform/WinApp.cpp
     src/platform/WinAudio.cpp
