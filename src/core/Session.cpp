@@ -3,6 +3,7 @@
 #include <array>
 #include <cmath>
 #include <limits>
+#include <optional>
 #include <queue>
 #include <utility>
 
@@ -12,6 +13,19 @@ constexpr int KeyEnter=13, KeyEscape=27, KeyTab=9, KeyShift=16;
 constexpr int KeyLeft=37, KeyUp=38, KeyRight=39, KeyDown=40;
 constexpr std::array<int,5> Sequence{2,0,3,1,2};
 constexpr std::array<const char*,4> Names{"DEPURAR","COMPILAR","VERIFICAR","ENTREGAR"};
+// Terminales de pared: solo se aceptan casillas con una pared vecina.
+std::optional<std::pair<int,int>> mountingWall(const Maze& maze,Vec2 floor) {
+    const int x=cell(floor.x),y=cell(floor.y);
+    constexpr int dx[4]={0,1,0,-1};
+    constexpr int dy[4]={-1,0,1,0};
+    const int offset=int(noiseHash(x,y,17)%4u);
+    for(int n=0;n<4;++n) {
+        const int d=(n+offset)%4;
+        if(maze.wall(x+dx[d],y+dy[d]))
+            return std::pair{x+dx[d],y+dy[d]};
+    }
+    return std::nullopt;
+}
 }
 GameSession::GameSession()=default;
 int GameSession::randomInt(int low,int high) {
@@ -45,8 +59,24 @@ std::string GameSession::objectiveName() const {
     if(completed_>=5) return "RECHAZAR LA REVISION FINAL";
     return std::string("SELLAR: ")+Names[activeTerminal_];
 }
+int GameSession::routeSteps() const {
+    return maze_.stepsBetween(player_,objective());
+}
+int GameSession::nearbyTerminal() const {
+    int match=-1;
+    double best=1.4;
+    for(const auto& terminal:terminals_) {
+        const double d=distance(player_,terminal.position);
+        if(d<best&&maze_.visible(player_,terminal.position)) {
+            best=d;
+            match=terminal.id;
+        }
+    }
+    return match;
+}
 bool GameSession::objectiveNearby() const {
-    return distance(player_,objective())<1.4&&maze_.visible(player_,objective());
+    if(completed_<5)return nearbyTerminal()==activeTerminal_;
+    return distance(player_,exit_)<1.4&&maze_.visible(player_,exit_);
 }
 void GameSession::placeObjects() {
     // Place terminals by route length, not geometric distance.
@@ -58,6 +88,7 @@ void GameSession::placeObjects() {
         double best=-1e20;
         Vec2 selected=player_;
         for(const Vec2 p:floors) {
+            if(!mountingWall(maze_,p))continue;
             const int steps=maze_.stepsBetween(player_,p);
             if(steps<5)continue;
             double nearest=distance(p,player_);
@@ -70,12 +101,19 @@ void GameSession::placeObjects() {
             if(score>best){best=score;selected=p;}
         }
         chosen.push_back(selected);
-        terminals_[static_cast<std::size_t>(i)]={selected,i};
+        auto wall=mountingWall(maze_,selected);
+        if(!wall) {
+            for(const Vec2 p:floors)
+                if(mountingWall(maze_,p)) {selected=p;wall=mountingWall(maze_,p);break;}
+        }
+        if(!wall)continue;
+        terminals_[static_cast<std::size_t>(i)]={selected,i,wall->first,wall->second};
     }
     // The central exit is chosen before revisions and remains stable.
     exit_=maze_.nearest({MapW/2.0,MapH/2.0});
     double exitScore=-1e20;
     for(const Vec2 p:floors) {
+        if(!mountingWall(maze_,p))continue;
         const int steps=maze_.stepsBetween(player_,p);
         if(steps<7)continue;
         bool overlaps=false;
@@ -85,6 +123,19 @@ void GameSession::placeObjects() {
         const double score=-std::abs(steps-14)*1.5
                            -distance(p,{MapW/2.0,MapH/2.0})*.12;
         if(score>exitScore){exitScore=score;exit_=p;}
+    }
+    if(const auto wall=mountingWall(maze_,exit_)) {
+        exitWallX_=wall->first;
+        exitWallY_=wall->second;
+    } else {
+        for(const Vec2 p:floors) {
+            if(const auto wall=mountingWall(maze_,p)) {
+                exit_=p;
+                exitWallX_=wall->first;
+                exitWallY_=wall->second;
+                break;
+            }
+        }
     }
     // The Revisor begins outside the player's immediate field of vision.
     revisorAI_.relocate(maze_.farthest(player_));
@@ -115,7 +166,7 @@ void GameSession::start() {
     placeObjects();
     resetDeadline();
     phase_=Phase::Playing;
-    inform("CONTRATO ABIERTO. CUMPLE 5 ENTREGAS.",5);
+    inform("BUSCA EL PANEL ILUMINADO. F: ESCAN TAB: PLANO E: SELLAR",6);
     sound(SoundEvent::Rewrite);
 }
 void GameSession::rewrite() {
@@ -272,8 +323,7 @@ void GameSession::update(double dt,const Input& input) {
         if(!nearby&&input.held('E')&&wrongCooldown_<=0) {
             for(const auto& terminal:terminals_) {
                 if(terminal.id==activeTerminal_) continue;
-                if(distance(player_,terminal.position)<1.3&&
-                   maze_.visible(player_,terminal.position)) {
+                if(nearbyTerminal()==terminal.id) {
                     wrongCooldown_=3.5;
                     pressure_+=8;
                     inform("TERMINAL INCORRECTA. COSTE DE RETRABAJO.",3);
