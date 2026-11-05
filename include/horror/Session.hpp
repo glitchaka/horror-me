@@ -46,6 +46,7 @@ public:
 private:
     void start();
     void placeObjects();
+    void resetDeadline();
     void rewrite();
     void move(const Input&,double);
     void chase(double);
