@@ -1,6 +1,7 @@
 #pragma once
 #include "horror/Input.hpp"
 #include "horror/Maze.hpp"
+#include "horror/RevisorAI.hpp"
 #include <array>
 #include <random>
 #include <string>
@@ -19,7 +20,7 @@ public:
     [[nodiscard]] const Maze& maze() const { return maze_; }
     [[nodiscard]] Phase phase() const { return phase_; }
     [[nodiscard]] Vec2 player() const { return player_; }
-    [[nodiscard]] Vec2 revisor() const { return revisor_; }
+    [[nodiscard]] Vec2 revisor() const { return revisorAI_.position(); }
     [[nodiscard]] Vec2 exit() const { return exit_; }
     [[nodiscard]] const std::array<Terminal,4>& terminals() const { return terminals_; }
     [[nodiscard]] Vec2 objective() const;
@@ -49,7 +50,6 @@ private:
     void resetDeadline();
     void rewrite();
     void move(const Input&,double);
-    void chase(double);
     void complete();
     void lose(std::string reason);
     void win();
@@ -61,11 +61,12 @@ private:
     std::mt19937 random_{0x5EA1C0DEu};
     std::array<Terminal,4> terminals_{};
     std::vector<SoundEvent> pendingSounds_{};
-    Vec2 player_{1.5,1.5},revisor_{20.5,20.5},exit_{11.5,11.5};
+    Vec2 player_{1.5,1.5},exit_{11.5,11.5};
+    RevisorAI revisorAI_{};
     Phase phase_{Phase::Menu};
     double heading_{.25},pressure_{9},rewriteSeconds_{33},elapsed_{0};
     double scanSeconds_{0},scanCooldown_{0},anchorSeconds_{0};
-    double interaction_{0},wrongCooldown_{0},chaseClock_{0};
+    double interaction_{0},wrongCooldown_{0};
     double hitSeconds_{0},shake_{0},notificationSeconds_{0};
     int completed_{0},anchors_{2},rewrites_{0},activeTerminal_{2};
     std::string notification_,defeatCause_;
