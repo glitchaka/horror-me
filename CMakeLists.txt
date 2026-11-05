@@ -28,3 +28,22 @@ if(MSVC)
 else()
     target_compile_options(HorrorMe PRIVATE -Wall -Wextra -Wpedantic)
 endif()
+
+include(CTest)
+if(BUILD_TESTING)
+    add_executable(HorrorCoreTests
+        tests/CoreTests.cpp
+        src/core/Maze.cpp
+        src/core/RevisorAI.cpp
+        src/core/Session.cpp
+    )
+    target_compile_features(HorrorCoreTests PRIVATE cxx_std_20)
+    set_target_properties(HorrorCoreTests PROPERTIES CXX_EXTENSIONS OFF)
+    target_include_directories(HorrorCoreTests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+    if(MSVC)
+        target_compile_options(HorrorCoreTests PRIVATE /W4 /permissive- /utf-8)
+    else()
+        target_compile_options(HorrorCoreTests PRIVATE -Wall -Wextra -Wpedantic)
+    endif()
+    add_test(NAME HorrorCoreTests COMMAND HorrorCoreTests)
+endif()
