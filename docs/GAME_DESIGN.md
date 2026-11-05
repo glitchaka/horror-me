@@ -6,10 +6,10 @@ No eres un héroe armado. Eres una persona competente atrapada en un sistema de 
 El terror surge de la incertidumbre, el espacio estrecho, la proximidad de El Revisor y la amenaza de perder el control de la situación. La dificultad no debe proceder de controles defectuosos.
 
 ## Bucle principal
-1. Leer el criterio actual en el HUD.
-2. Explorar pasillos con el escáner o interpretar el plano.
+1. Leer la orden actual en el HUD: número de entrega, terminal correcta y distancia por ruta.
+2. Explorar siguiendo el trayecto azul del plano (Tab) o el siguiente tramo del escáner (F). Los paneles están montados en muros, no bloquean los pasillos.
 3. Evitar al Revisor, protegerse con un ancla y encontrar la terminal vigente.
-4. Mantener E para sellarla; una terminal equivocada aumenta la presión.
+4. Reconocer el panel iluminado, acercarse y mantener E para sellarlo. Si el panel es incorrecto, el HUD lo advierte y operar allí aumenta la presión.
 5. Aceptar una nueva instrucción, adaptarse a una reconfiguración local y repetir.
 6. Tras cinco entregas, llegar al núcleo y pulsar R: **rechazar** la orden final.
 
@@ -30,7 +30,7 @@ El terror surge de la incertidumbre, el espacio estrecho, la proximidad de El Re
 - **Escáner (F)**: muestra durante unos segundos la dirección del objetivo; tiene tiempo de reutilización y un pequeño coste de presión.
 - **Ancla (Q)**: impide revisiones durante diez segundos, desplaza al Revisor y reduce la presión; las cargas son limitadas, pero pueden reponerse tras completar entregas.
 - **Revisor**: perseguidor que navega el laberinto mediante búsqueda de caminos, acelera en las fases tardías y se hace más visible en la fase final.
-- **Plano (Tab)**: herramienta explícita de orientación; muestra pasillos, terminales, núcleo, jugador y perseguidor.
+- **Plano (Tab)**: herramienta explícita de orientación; muestra pasillos, ruta transitable azul, terminales, núcleo, jugador y perseguidor.
 
 ## Compromisos de diseño
 - Las acciones de movimiento no hacen otras acciones accidentalmente.

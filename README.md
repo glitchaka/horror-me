@@ -6,21 +6,13 @@ Videojuego nativo de horror sistémico en primera persona desarrollado con **C++
 
 Debes completar cinco entregas dentro de un laberinto de pasillos opresivos. El Revisor te persigue, los criterios se contradicen y parte del espacio se transforma mientras trabajas. Tu fortaleza no es disparar: es observar, orientarte, estabilizar el mundo y decidir cuándo rechazar una orden.
 
-Hay seis actos narrativos, escáner direccional, anclas de estabilidad, persecución mediante búsqueda de caminos, acumulación de presión, mensajes del sistema y un desenlace jugable.
+Hay seis actos narrativos, terminales empotradas en paredes, escáner direccional, anclas de estabilidad, persecución mediante búsqueda de caminos, acumulación de presión y un desenlace jugable. El HUD indica la orden vigente y los pasos necesarios; el plano (Tab) muestra una ruta transitable hacia el objetivo.
 
 ## Ejecutable publicado
 
 El archivo **HorrorMe-Windows-x64.exe** se publica directamente en [GitHub Releases](https://github.com/glitchaka/horror-me/releases) cuando las pruebas de Windows pasan. No se distribuye el código como ZIP.
 
 El workflow extrae la versión de `project(HorrorMe VERSION ...)` en `CMakeLists.txt`. Para publicar otra versión, se debe aumentar esa versión y actualizar `docs/RELEASE_NOTES.md`. Una versión ya publicada no se sobrescribe silenciosamente.
-
-## Android — APK nativo de prueba
-
-El cliente para teléfonos Android ARM64 reutiliza el motor C++20 mediante JNI; no usa HTML, WebView ni JavaScript. La interfaz táctil se dibuja con Android SurfaceView y el audio usa AudioTrack.
-
-La versión de prueba se publica como **HorrorMe-Android-arm64-test.apk** dentro de [GitHub Releases](https://github.com/glitchaka/horror-me/releases) una vez aprobada su compilación Android. La firma es de depuración; puede requerir desinstalar una versión anterior para actualizar. Requiere Android 7+ y procesador ARM64.
-
-Controles: palanca izquierda para desplazamiento, arrastrar para mirar, botones SELLAR, ESCAN, ANCLA, PLANO, NO, CORRER y PAUSA. Detalles en [android/README.md](android/README.md).
 
 ## Compilar en Windows
 
@@ -69,3 +61,7 @@ No hay mecánicas de salto ni disparos.
 La construcción se comprueba en GitHub Actions con MSVC Release y CTest. Las pruebas del núcleo verifican conectividad del mapa tras múltiples mutaciones, acceso a objetivos y respuesta del perseguidor.
 
 **Queda pendiente una prueba visual y de jugabilidad manual en Windows.** La compilación correcta no demuestra por sí sola que el equilibrio, la presentación y la experiencia de juego sean definitivos.
+
+## Regla de navegación
+
+Las terminales y el panel del núcleo están integrados en los muros; no bloquean los pasillos. Cada orden señala el panel correcto y su distancia por ruta. Pulsa `Tab` para consultar el trayecto marcado en azul o `F` para escanear la dirección del siguiente tramo. Acércate al panel iluminado y mantén `E`; los paneles incorrectos muestran una advertencia. Al finalizar las cinco entregas, localiza el núcleo, acércate y pulsa `R`.

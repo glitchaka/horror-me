@@ -1,20 +1,18 @@
-# PROTOCOLO: NO CONFORME — Versión 0.2.0 (Windows y Android)
+# PROTOCOLO: NO CONFORME — Versión 0.3.0 (Windows x64)
 
-Versión nativa del juego de horror sistémico en primera persona para Windows x64 y Android ARM64.
+### Correcciones
+- Terminales de misión y panel final representados como dispositivos empotrados en paredes, sin objetos similares a puertas en medio del pasillo.
+- Mejor orientación: orden y número de entrega claros, distancia en pasos, camino marcado en el plano (Tab) y escáner (F) hacia el siguiente segmento transitable.
+- Advertencia de terminal incorrecta y señal clara al estar junto a la terminal adecuada.
+- Los cambios de mapa preservan paredes con paneles; comprobado mediante pruebas del núcleo.
 
-### Android (prueba)
-- HorrorMe-Android-arm64-test.apk: APK de prueba para Android ARM64, firmado con la clave de depuración automática de GitHub Actions.
-- Pantalla horizontal y controles táctiles: palanca izquierda para moverse, arrastre para girar; botones Sellar, Escán, Ancla, Plano, No y Pausa.
-- Simulación, renderizado, IA y laberinto utilizan los mismos módulos C++20 de Windows.
-- La salida gráfica utiliza SurfaceView/Canvas nativos y el sonido AudioTrack; sin tecnologías web ni ficheros externos.
-- Android puede solicitar autorización para instalar aplicaciones desde el navegador o administrador de archivos.
-- APK de prueba, no distribución final para Google Play.
+### Plataforma
+- Windows x64 nativo, C++20, GDI, WinMM.
+- Se retiró del árbol de código el port experimental Android; fue solo una prueba puntual.
 
-### Windows
-- HorrorMe-Windows-x64.exe: ejecutable nativo con runtime C++ estático.
+### Publicación
+- `HorrorMe-Windows-x64.exe` y archivo de verificación SHA-256.
+- La compilación Windows y las pruebas automáticas deben pasar antes de publicar.
 
-### Integridad
-Los archivos .sha256 adjuntos permiten verificar los binarios.
-
-### Estado de calidad
-Windows verifica la compilación y los tests del núcleo. Android compila con Gradle/NDK y comprueba que el APK incluya la biblioteca nativa ARM64. Pendientes: pruebas manuales en teléfono, respuesta táctil y audio.
+### Pendiente
+Verificación manual visual, legibilidad de paneles en distintas distancias, equilibrado de IA y controles.

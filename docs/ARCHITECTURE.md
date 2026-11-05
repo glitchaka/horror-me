@@ -22,10 +22,10 @@
 
 - **Maze**: estructura del mapa, búsqueda de rutas, celdas transitables y mutaciones locales que conservan conectividad.
 - **RevisorAI**: posición del perseguidor, búsqueda de caminos, velocidad y desplazamiento; no gestiona ventanas, audio, objetivos ni menús.
-- **GameSession**: orquesta reglas, criterios, entregas, presión, eventos sonoros, recompensas, penalizaciones y estados; no dibuja.
+- **GameSession**: orquesta reglas, criterios, entregas, presión, eventos sonoros, recompensas, penalizaciones y estados; asigna cada terminal a una casilla transitable con una pared adyacente, sin dibujar.
 - **Input**: distingue teclas mantenidas de pulsaciones nuevas. Permite una única responsabilidad por control.
 - **Canvas**: framebuffer RGB y rasterización de tipografía propia.
-- **SceneRenderer**: raycasting de muros, sprites y efectos visuales; solo consulta el estado.
+- **SceneRenderer**: raycasting de muros y paneles como decals en su cara frontal; solo el Revisor se representa como sprite dentro del corredor.
 - **HudRenderer**: presenta información, menús, plano y mensajes; solo consulta el estado.
 - **IAudio**: interfaz de audio abstracta; **WinAudio** utiliza WinMM y una cola de buffers PCM.
 - **WinApp**: adaptación Windows, ciclo de vida, temporizador, teclado, ratón, presentación GDI e integración.
@@ -42,8 +42,8 @@ Estas decisiones aplican los principios al alcance actual; no implican que toda 
 
 ## Invariantes
 
-1. El jugador, El Revisor y cada terminal están en una casilla transitable.
-2. Todos los espacios transitables permanecen conectados tras una distorsión.
+1. El jugador y El Revisor están en casillas transitables; cada terminal se opera desde una casilla transitable y se representa en una pared vecina, nunca como puerta flotante.
+2. Los muros que alojan terminales o el núcleo se preservan en cada distorsión y todos los espacios transitables siguen conectados.
 3. Las revisiones locales no mueven arbitrariamente ni al jugador ni al objetivo.
 4. El plazo de revisión se ajusta a la distancia por la red de pasillos.
 5. Una vez completadas cinco entregas, el núcleo permanece accesible y no se generan nuevas revisiones.
