@@ -26,3 +26,4 @@ private:
     static char normalize(char c);
     static std::vector<std::uint8_t> unpack(std::string_view encoded);
 };
+} // namespace horror
