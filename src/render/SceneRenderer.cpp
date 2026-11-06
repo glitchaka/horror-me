@@ -119,26 +119,43 @@ void SceneRenderer::draw(Canvas& out,const GameSession& game) const {
 }
 Color SceneRenderer::panelPixel(bool exitPanel,int type,double u,double v,
                                  double pulse,int active) const {
-    // The panels are decals on actual maze walls. No free-floating "doors".
-    if(u<.225||u>.775||v<.29||v>.72)return 0;
-    const double x=(u-.225)/.55;
-    const double y=(v-.29)/.43;
-    if(x<.055||x>.945||y<.065||y>.935)return rgb(27,42,48);
-    if(x<.10||x>.90||y<.11||y>.89)return rgb(83,102,107);
-    if(x<.145||x>.855||y<.18||y>.76)return rgb(11,18,24);
-    const bool activePanel=exitPanel||type==active;
-    const Color lit=exitPanel?rgb(99,233,188)
-                       :activePanel?TerminalColors[static_cast<std::size_t>(type)]
-                                    :rgb(44,68,72);
-    if(y>.78&&x>.35&&x<.65)return activePanel?rgb(237,210,126):rgb(48,52,56);
-    if(y>.68) {
-        if(int(x*30)%6==0)return rgb(84,97,99);
-        return rgb(25,31,39);
+    // A recessed industrial inspection terminal. Wall decal, never a door
+    // or collision object inside the traversal space.
+    if(u<.18||u>.82||v<.245||v>.80)return 0;
+    const double x=(u-.18)/.64,y=(v-.245)/.555;
+    const bool isActive=exitPanel||type==active;
+    const Color status=exitPanel?rgb(218,113,91):
+                       isActive?TerminalColors[static_cast<std::size_t>(type)]
+                               :rgb(49,84,78);
+    // Oxidized outer housing, metallic bevel, corner screws.
+    if(x<.035||x>.965||y<.035||y>.965)return rgb(13,21,23);
+    if(x<.083||x>.917||y<.073||y>.93){
+        const bool screw=(x<.12||x>.88)&&(y<.13||y>.87);
+        if(screw)return rgb(190,168,109);
+        return rgb(89,108,106);
     }
-    if(int(x*24)%7==0||int(y*24)%9==0)
-        return shade(lit,activePanel?.50:.27);
-    const double flicker=activePanel?.91+.08*std::sin(pulse*Pi*2):.50;
-    return shade(lit,flicker);
+    // Red/amber hazard stripes indicate a containment seal.
+    if(y<.175||y>.875) {
+        const bool marker=int((x-y*.6)*24)%4<2;
+        return marker?rgb(158,129,69):rgb(25,30,34);
+    }
+    if(x>.15&&x<.85&&y>.23&&y<.66){
+        if(!isActive)return rgb(21,39,41);
+        const double scan=std::fmod(y*15+pulse*2.9,1.0);
+        if(scan<.075)return shade(status,1.55);
+        if(int(x*19)%7==0)return shade(status,.34);
+        if(int(y*30)%5==0)return shade(status,.58);
+        return shade(status,.78+.11*std::sin(pulse*Pi*2));
+    }
+    // Compact indicator bank and brass mechanical switches.
+    if(x>.23&&x<.77&&y>.73&&y<.85){
+        const int led=int((x-.23)*22);
+        if(led%5<=1)return isActive?rgb(205,219,177):rgb(87,90,79);
+        return rgb(32,37,37);
+    }
+    if(x>.11&&x<.20&&y>.25&&y<.84)return rgb(27,42,41);
+    if(x>.81&&x<.88&&y>.25&&y<.84)return rgb(27,42,41);
+    return rgb(22,30,34);
 }
 Color SceneRenderer::revisorPixel(bool finalPhase,double u,double v,
                                    double pulse) const {
