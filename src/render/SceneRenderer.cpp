@@ -7,8 +7,46 @@
 namespace horror {
 namespace {
 constexpr std::array<Color,4> TerminalColors{
-    rgb(225,166,110),rgb(112,196,217),rgb(216,213,196),rgb(196,139,208)
+    rgb(225,166,110),rgb(112,196,217),rgb(216,213,196)
 };
+void drawObjectiveBeacon(Canvas& canvas,const GameSession& game,
+                         Vec2 direction,Vec2 plane,int horizon,
+                         const std::array<double,ScreenW>& depths) {
+    // The marker belongs to the mission terminal, NOT the pursuer.
+    Vec2 target=game.objective();
+    if(game.completed()<5) {
+        const auto& terminal=game.terminals()[static_cast<std::size_t>(game.activeTerminal())];
+        target.x+=(terminal.wallX-cell(terminal.position.x))*.5;
+        target.y+=(terminal.wallY-cell(terminal.position.y))*.5;
+    }else{
+        const auto [wallX,wallY]=game.exitWall();
+        target.x+=(wallX-cell(game.exit().x))*.5;
+        target.y+=(wallY-cell(game.exit().y))*.5;
+    }
+    const Vec2 player=game.player();
+    if(distance(player,target)>11.5||!game.maze().visible(player,target))return;
+    const double determinant=plane.x*direction.y-direction.x*plane.y;
+    if(std::abs(determinant)<1e-8)return;
+    const double inv=1.0/determinant;
+    const double relX=target.x-player.x,relY=target.y-player.y;
+    const double projectionX=inv*(direction.y*relX-direction.x*relY);
+    const double projectionY=inv*(-plane.y*relX+plane.x*relY);
+    if(projectionY<=.1||std::abs(projectionX/projectionY)>.97)return;
+    const int x=int(ScreenW*.5*(1+projectionX/projectionY));
+    if(x<8||x>=ScreenW-8||projectionY>depths[static_cast<std::size_t>(x)]+.75)return;
+    const int y=horizon;
+    const Color color=game.completed()>=5?rgb(108,240,185):rgb(246,213,116);
+    // Brackets, not an aiming reticle in the middle of the screen.
+    canvas.rect(x-16,y-11,8,2,color);
+    canvas.rect(x-16,y-11,2,7,color);
+    canvas.rect(x+8,y-11,8,2,color);
+    canvas.rect(x+14,y-11,2,7,color);
+    canvas.rect(x-16,y+8,8,2,color);
+    canvas.rect(x-16,y+3,2,7,color);
+    canvas.rect(x+8,y+8,8,2,color);
+    canvas.rect(x+14,y+3,2,7,color);
+    canvas.text(x-12,y-30,"OBJ",color);
+}
 }
 void SceneRenderer::draw(Canvas& out,const GameSession& game) const {
     const Maze& maze=game.maze();
@@ -95,12 +133,8 @@ void SceneRenderer::draw(Canvas& out,const GameSession& game) const {
             out.pixel(x,y,decal?shade(decal,std::clamp(fade+.28,.53,1.0)):wallColor);
         }
     }
+    drawObjectiveBeacon(out,game,direction,plane,horizon,depths);
     drawRevisor(out,game,direction,plane,horizon,depths);
-    const Color cross=game.hitSeconds()>0?rgb(255,87,66):rgb(125,157,160);
-    out.rect(ScreenW/2-3,ScreenH/2,2,1,cross);
-    out.rect(ScreenW/2+2,ScreenH/2,2,1,cross);
-    out.rect(ScreenW/2,ScreenH/2-3,1,2,cross);
-    out.rect(ScreenW/2,ScreenH/2+2,1,2,cross);
     if(game.hitSeconds()>0) {
         for(int y=0;y<ScreenH;y+=4) {
             out.pixel(1,y,rgb(100,19,21));
