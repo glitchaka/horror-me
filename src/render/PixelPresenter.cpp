@@ -10,6 +10,21 @@ const std::vector<Color>& PixelPresenter::compose(const Color* source,
     output_.resize(static_cast<std::size_t>(width)*height);
     std::fill(output_.begin(),output_.end(),Color{0});
     const int size=viewport_.scale;
+    if(viewport_.x>=0&&viewport_.y>=0&&
+       viewport_.x+viewport_.width<=width&&viewport_.y+viewport_.height<=height) {
+        // Expand one scanline and replicate it vertically. 4K screens do
+        // not require a fill call for every destination pixel.
+        for(int sy=0;sy<ScreenH;++sy) {
+            Color* row=output_.data()+
+                       static_cast<std::size_t>(viewport_.y+sy*size)*width+viewport_.x;
+            for(int sx=0;sx<ScreenW;++sx)
+                std::fill_n(row+sx*size,size,source[sy*ScreenW+sx]);
+            for(int copy=1;copy<size;++copy)
+                std::memcpy(row+static_cast<std::size_t>(copy)*width,row,
+                            static_cast<std::size_t>(viewport_.width)*sizeof(Color));
+        }
+        return output_;
+    }
     for(int sourceY=0;sourceY<ScreenH;++sourceY) {
         const int baseY=viewport_.y+sourceY*size;
         // Off-screen cropping is only needed on displays smaller than
