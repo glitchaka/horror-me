@@ -205,8 +205,8 @@ public:
         MONITORINFO info{sizeof(info)};
         if(!GetMonitorInfoW(monitor,&info))return 2;
         const RECT work=info.rcWork;
-        const int w=std::min(1152,work.right-work.left);
-        const int h=std::min(648,work.bottom-work.top);
+        const int w=std::min(1152,int(work.right-work.left));
+        const int h=std::min(648,int(work.bottom-work.top));
         const int x=work.left+(work.right-work.left-w)/2;
         const int y=work.top+(work.bottom-work.top-h)/2;
         // Borderless even in windowed mode; F11 toggles fullscreen.
