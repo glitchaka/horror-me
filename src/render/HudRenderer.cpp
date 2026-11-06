@@ -79,7 +79,10 @@ void HudRenderer::miniMap(Canvas& canvas,const GameSession& game) const {
     const int vx=int(std::round(std::cos(game.heading())*4));
     const int vy=int(std::round(std::sin(game.heading())*4));
     canvas.rect(playerX+1+vx,playerY+1+vy,2,2,rgb(247,247,219));
-    canvas.text(left,top+width+2,"O: OBJ  R: ENEM",rgb(174,184,163));
+    canvas.rect(left,top+width+5,4,4,rgb(248,206,94));
+    canvas.text(left+6,top+width,"OBJ",rgb(223,226,197));
+    canvas.rect(left+40,top+width+5,4,4,rgb(234,49,60));
+    canvas.text(left+46,top+width,"REV",rgb(223,180,172));
 }
 void HudRenderer::menu(Canvas& canvas,const GameSession& game) const {
     canvas.clear(rgb(8,13,17));
