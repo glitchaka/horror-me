@@ -14,20 +14,28 @@ void SceneRenderer::draw(Canvas& out,const GameSession& game) const {
     const Maze& maze=game.maze();
     const double glow=game.tension();
     const int horizon=ScreenH/2+int(std::sin(game.elapsed()*11)*game.shake()*5);
-    for(int y=0;y<ScreenH;++y) for(int x=0;x<ScreenW;++x) {
-        if(y<horizon) {
-            const double z=double(y)/std::max(1,horizon);
-            out.pixel(x,y,rgb(int(6+z*11+glow*10),int(9+z*9),int(15+z*14)));
-        } else {
-            const double z=double(y-horizon)/std::max(1,ScreenH-horizon);
-            const int cracks=noiseHash(x/13,y/8,game.rewrites()*5)%37==0?6:0;
-            out.pixel(x,y,rgb(int(9+z*12+glow*17+cracks),
-                              int(10+z*9+cracks),int(13+z*9)));
-        }
-    }
     const Vec2 pos=game.player();
     const Vec2 direction{std::cos(game.heading()),std::sin(game.heading())};
     const Vec2 plane{-direction.y*FieldOfViewScale,direction.x*FieldOfViewScale};
+    // World-space perspective projection of procedural floor and ceiling.
+    // Textures are stable as the camera moves; no full-screen wallpaper.
+    for(int y=0;y<ScreenH;++y) {
+        const bool above=y<horizon;
+        const int row=std::abs(y-horizon);
+        const double worldDepth=(ScreenH*.53)/std::max(1,row);
+        for(int x=0;x<ScreenW;++x) {
+            const double camera=2.0*(x+.5)/ScreenW-1;
+            const Vec2 world{
+                pos.x+worldDepth*(direction.x+plane.x*camera),
+                pos.y+worldDepth*(direction.y+plane.y*camera)
+            };
+            Color color=above?
+                materials_.ceiling(world,game.completed(),game.elapsed(),game.pressure()):
+                materials_.floor(world,game.completed(),game.elapsed(),game.pressure());
+            const double fog=std::clamp(std::exp(-worldDepth*.105),.12,1.0);
+            out.pixel(x,y,shade(color,fog));
+        }
+    }
     std::array<double,ScreenW> depths{};
     for(int x=0;x<ScreenW;++x) {
         const double camera=2.0*(x+.5)/ScreenW-1;
@@ -52,8 +60,7 @@ void SceneRenderer::draw(Canvas& out,const GameSession& game) const {
         const int bottom=std::min(ScreenH,horizon+wallHeight/2);
         double hit=(side==0?pos.y+depth*ry:pos.x+depth*rx);
         hit-=std::floor(hit);
-        int tx=int(hit*32);
-        if((side==0&&rx>0)||(side==1&&ry<0))tx=31-tx;
+        if((side==0&&rx>0)||(side==1&&ry<0))hit=1.0-hit;
         // Identify only fixtures on the wall face that the ray actually hits.
         const int floorX=side==0?mx-stepX:mx;
         const int floorY=side==1?my-stepY:my;
@@ -73,21 +80,19 @@ void SceneRenderer::draw(Canvas& out,const GameSession& game) const {
                cell(game.exit().x)==floorX&&cell(game.exit().y)==floorY)
                 exitPanel=true;
         }
-        const int salt=int(noiseHash(mx,my)%17);
         const double fade=std::clamp(1.0/(1.0+depth*.12),.20,1.0);
         for(int y=top;y<bottom;++y) {
-            const int ty=int((double(y-horizon+wallHeight*.5)/std::max(1,wallHeight))*32);
-            int lit=20+salt+((tx==0||tx==31)?-13:0);
-            if(ty%16==0)lit-=8;
-            if(noiseHash(mx*3+tx/5,my*5+ty/5)%29==0)lit+=15;
-            if(ty>16&&ty<18&&tx>5&&tx<27&&noiseHash(mx,my)%6==0)lit+=24;
-            const double v=lit*fade;
-            const Color wallColor=rgb(int(v*(1+glow*.48)),int(v*1.24),int(v*1.5));
             const double relativeV=double(y-horizon+wallHeight*.5)/std::max(1,wallHeight);
+            Color wallColor=materials_.wall(mx,my,hit,relativeV,side,depth,
+                                             game.completed(),game.elapsed(),game.pressure());
+            // Functional fixtures cast a visible band of light onto their wall.
+            const bool activePanel=exitPanel||(panelType==game.activeTerminal()&&panelType>=0);
+            if(activePanel&&std::abs(hit-.5)<.45&&relativeV>.13&&relativeV<.88)
+                wallColor=shade(wallColor,1.20);
             const Color decal=(panelType>=0||exitPanel)?
                 panelPixel(exitPanel,panelType,hit,relativeV,
                            std::fmod(game.elapsed()*2.0,1.0),game.activeTerminal()):0;
-            out.pixel(x,y,decal?shade(decal,std::clamp(fade+.22,.50,1.0)):wallColor);
+            out.pixel(x,y,decal?shade(decal,std::clamp(fade+.28,.53,1.0)):wallColor);
         }
     }
     drawRevisor(out,game,direction,plane,horizon,depths);
@@ -103,13 +108,14 @@ void SceneRenderer::draw(Canvas& out,const GameSession& game) const {
         }
     }
     const bool imminent=game.rewriteSeconds()<3&&game.completed()<5;
-    const int lines=int((glow*.7+(imminent?.9:0))*9);
+    const int lines=int((glow*.6+(imminent?.65:0))*11);
     for(int i=0;i<lines;++i) {
         const int yy=int(noiseHash(i,int(game.elapsed()*22),game.rewrites())%ScreenH);
         const int xx=int(noiseHash(i,yy,game.rewrites())%ScreenW);
-        const int width=12+int(noiseHash(xx,i)%75);
-        out.rect(xx,yy,width,1,imminent?rgb(139,33,39):rgb(61,38,48));
+        const int width=12+int(noiseHash(xx,i)%95);
+        out.rect(xx,yy,width,1,imminent?rgb(112,27,35):rgb(51,42,49));
     }
+    atmosphere_.apply(out,game.completed(),game.pressure(),game.elapsed(),game.shake());
 }
 Color SceneRenderer::panelPixel(bool exitPanel,int type,double u,double v,
                                  double pulse,int active) const {
@@ -136,23 +142,52 @@ Color SceneRenderer::panelPixel(bool exitPanel,int type,double u,double v,
 }
 Color SceneRenderer::revisorPixel(bool finalPhase,double u,double v,
                                    double pulse) const {
-    const double horizontal=std::abs(u-.5);
-    if(v<.08||v>.98)return 0;
-    if(v<.30) {
-        const double radius=std::hypot((u-.5)*1.1,(v-.20)*2.5);
-        if(radius>.22)return 0;
-        if(v>.168&&v<.215&&((u>.35&&u<.43)||(u>.56&&u<.64)))
-            return finalPhase?(pulse>.5?rgb(255,220,98):rgb(253,80,51))
-                             :(pulse>.5?rgb(255,78,65):rgb(143,27,45));
-        return rgb(12,11,18);
+    // A bureaucratic apparition: an unnaturally elongated body,
+    // a document-covered uniform, and a search-light in place of a face.
+    const double x=u-.50;
+    const double tremor=.014*std::sin(pulse*6.2831853);
+    const double head=std::pow((x-tremor)*9.1,2)+std::pow((v-.225)*10.1,2);
+    const bool eyes=v>.185&&v<.25&&
+        ((x>-.058&&x<-.022)||(x>.028&&x<.064));
+    const Color iris=finalPhase?rgb(252,62,57):rgb(193,219,183);
+    if(head<1.0) {
+        if(eyes)return iris;
+        if(v>.262&&v<.274&&std::abs(x)<.044)
+            return rgb(122,57,54);
+        const int shadow=noiseHash(int(u*120),int(v*120),13)%21;
+        return rgb(25+int(shadow)/2,30+int(shadow)/3,30+int(shadow)/2);
     }
-    const double width=v<.65?.18+(v-.3)*.43:.33-(v-.65)*.16;
-    if(horizontal<width) {
-        if(horizontal<.03)return finalPhase?rgb(98,39,42):rgb(45,25,34);
-        return finalPhase?rgb(38+int(19*v),13,25):rgb(15+int(13*v),15,24+int(8*v));
+    // Inverted collar and sharp shoulders.
+    if(v>.305&&v<.39&&std::abs(x)<(.10+(v-.30)*1.65))
+        return rgb(39,44,43);
+    // Torso shifts from narrow chest to broad archival robe.
+    const double torsoWidth=.105+.19*std::clamp((v-.34)/.55,0.0,1.0);
+    if(v>.36&&v<.94&&std::abs(x)<torsoWidth) {
+        // A pale mandate stamped vertically across the chest.
+        if(std::abs(x)<.052&&v>.47&&v<.75) {
+            const int line=int(v*140)%16;
+            if(line<2||line==7)return finalPhase?rgb(206,91,75):rgb(173,161,128);
+            return rgb(76,77,65);
+        }
+        if(std::abs(x)<.012)return rgb(102,93,77);
+        if(std::abs(x)>torsoWidth-.022)return rgb(13,19,21);
+        const int weave=int(noiseHash(int(u*91),int(v*111),23)%18);
+        const double f=.72+.28*std::sin(v*14+u*6);
+        return rgb(int((25+weave*.4)*f),int((32+weave*.3)*f),int((35+weave*.3)*f));
     }
-    if(v>.36&&v<.78&&horizontal<.36)
-        return finalPhase?rgb(73,22,35):rgb(23,19,28);
+    // Two separate, impossibly long arms and articulated metal fingers.
+    const double leftArm=-.20-.04*std::sin(v*3.2+pulse*.9);
+    const double rightArm=.20+.10*std::sin(v*3.7+pulse*1.1);
+    if(v>.42&&v<.97) {
+        if(std::abs(x-leftArm)<.029||std::abs(x-rightArm)<.020)
+            return finalPhase?rgb(62,25,31):rgb(29,41,39);
+        if(v>.86&&v<.97&&(std::abs(x-(leftArm-.03))<.010||
+                           std::abs(x-(rightArm+.03))<.012))
+            return rgb(97,103,82);
+    }
+    // Legs are narrower than the robe, separated at the bottom.
+    if(v>.90&&v<1.0&&((x>-.145&&x<-.065)||(x>.070&&x<.150)))
+        return rgb(19,24,25);
     return 0;
 }
 void SceneRenderer::drawRevisor(Canvas& out,const GameSession& game,
