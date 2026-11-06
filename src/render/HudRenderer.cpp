@@ -3,158 +3,182 @@
 #include <array>
 #include <cmath>
 #include <cstdio>
+#include <string>
 
 namespace horror {
 namespace {
 constexpr std::array<Color,4> TerminalColors{
     rgb(225,166,110),rgb(112,196,217),rgb(216,213,196),rgb(196,139,208)
 };
+Color signal(const GameSession& game) {
+    if(game.pressure()>75)return rgb(223,66,70);
+    if(game.completed()>=4)return rgb(183,123,79);
+    return rgb(123,196,176);
+}
+void stripe(Canvas& canvas,int y,Color color) {
+    for(int x=4;x<ScreenW-4;x+=9)canvas.rect(x,y,5,1,color);
+}
 }
 void HudRenderer::map(Canvas& canvas,const GameSession& game) const {
     constexpr int scale=4;
-    constexpr int left=ScreenW-MapW*scale-11;
-    constexpr int top=34;
-    canvas.rect(left-6,top-17,MapW*scale+12,MapH*scale+54,rgb(6,12,20));
-    canvas.text(left,top-12,"PLANO INESTABLE",rgb(164,190,199));
+    constexpr int left=ScreenW-MapW*scale-12;
+    constexpr int top=52;
+    const int width=MapW*scale;
+    canvas.rect(left-7,top-26,width+14,MapH*scale+54,rgb(6,13,17));
+    canvas.rect(left-7,top-26,width+14,2,rgb(106,162,149));
+    canvas.text(left-3,top-22,"PLANO / RUTA",rgb(174,217,204));
     const Maze& maze=game.maze();
-    for(int y=0;y<MapH;++y) for(int x=0;x<MapW;++x)
+    for(int y=0;y<MapH;++y)for(int x=0;x<MapW;++x)
         canvas.rect(left+x*scale,top+y*scale,scale-1,scale-1,
-                    maze.wall(x,y)?rgb(39,52,62):rgb(13,24,31));
-    const auto marker=[&](Vec2 position,Color color) {
-        canvas.rect(left+cell(position.x)*scale,top+cell(position.y)*scale,3,3,color);
+                    maze.wall(x,y)?rgb(46,60,61):rgb(14,25,29));
+    const auto marker=[&](Vec2 pos,Color color) {
+        canvas.rect(left+cell(pos.x)*scale,top+cell(pos.y)*scale,3,3,color);
     };
-    const auto route=game.objectiveRoute();
-    for(std::size_t i=1;i<route.size();++i)
-        marker(route[i],rgb(33,103,119));
+    for(Vec2 position:game.objectiveRoute())marker(position,rgb(61,152,158));
     for(const auto& terminal:game.terminals())
         marker(terminal.position,terminal.id==game.activeTerminal()&&game.completed()<5?
-               TerminalColors[static_cast<std::size_t>(terminal.id)]:rgb(82,85,90));
-    if(game.completed()>=5)marker(game.exit(),rgb(113,235,209));
-    marker(game.revisor(),rgb(227,39,59));
-    marker(game.player(),rgb(242,242,217));
-    canvas.text(left,top+MapH*scale+3,"BLANCO: TU",rgb(242,242,217));
-    canvas.text(left,top+MapH*scale+13,"ROJO: REVISOR",rgb(227,68,78));
-    canvas.text(left,top+MapH*scale+23,"AZUL: RUTA",rgb(114,220,200));
+               TerminalColors[static_cast<std::size_t>(terminal.id)]:rgb(83,90,94));
+    if(game.completed()>=5)marker(game.exit(),rgb(103,222,178));
+    marker(game.revisor(),rgb(230,71,71));
+    marker(game.player(),rgb(245,247,220));
+    canvas.text(left,top+MapH*scale+3,"BLANCO: TU",rgb(221,235,211));
+    canvas.text(left,top+MapH*scale+17,"AZUL: RUTA",rgb(119,209,209));
+    canvas.text(left,top+MapH*scale+30,"ROJO: REVISOR",rgb(225,100,104));
 }
 void HudRenderer::menu(Canvas& canvas,const GameSession& game) const {
-    canvas.clear(rgb(6,10,16));
-    for(int y=0;y<ScreenH;++y) {
-        const int wave=int(std::sin(y*.17+game.elapsed()*.7)*10);
-        for(int x=0;x<ScreenW;++x) {
-            if(std::abs(x-ScreenW/2+wave)<1&&y%8<5)
-                canvas.pixel(x,y,rgb(34,58,63));
-            if(noiseHash(x/5,y/5,33)%89==0)
-                canvas.pixel(x,y,rgb(19,32,42));
-        }
+    canvas.clear(rgb(8,13,17));
+    for(int y=0;y<ScreenH;++y)for(int x=0;x<ScreenW;++x){
+        const unsigned seed=noiseHash(x/3,y/3,77);
+        if(seed%137u==0u)canvas.pixel(x,y,rgb(25,42,45));
+        const int j=int(std::sin(game.elapsed()*.3+y*.05)*5);
+        if(std::abs(x-319+j)<2&&y%6<4)
+            canvas.pixel(x,y,rgb(34,59,55));
     }
-    canvas.center(27,"PROTOCOLO",rgb(170,199,209),2);
-    canvas.center(48,"NO CONFORME",rgb(235,105,103),2);
-    canvas.center(76,"HORROR SISTEMICO EN PRIMERA PERSONA",rgb(137,165,173));
-    canvas.center(95,"CUMPLE 5 ORDENES CAMBIANTES.",rgb(221,213,190));
-    canvas.center(107,"BUSCA EL PANEL ILUMINADO EN LA PARED.",rgb(221,213,190));
-    canvas.center(119,"EL PLANO MARCA LA RUTA EN AZUL.",rgb(221,213,190));
-    canvas.text(25,146,"WASD: MOVER  RATON / FLECHAS: GIRAR",rgb(145,176,182));
-    canvas.text(25,156,"E: SELLAR  F: RASTREAR  Q: ANCLA",rgb(145,176,182));
-    canvas.text(25,166,"TAB: RUTA  SHIFT: CORRER  P: PAUSA",rgb(145,176,182));
-    canvas.center(190,"ENTER PARA ENTRAR",rgb(239,162,132));
-    canvas.center(202,"M: AUDIO",rgb(98,125,136));
+    canvas.rect(8,7,ScreenW-16,2,rgb(107,158,139));
+    canvas.rect(8,12,2,ScreenH-24,rgb(52,85,82));
+    canvas.rect(ScreenW-10,12,2,ScreenH-24,rgb(52,85,82));
+    canvas.rect(8,ScreenH-9,ScreenW-16,2,rgb(107,158,139));
+    canvas.text(20,19,"DEPARTAMENTO DE VERIFICACION",rgb(145,188,173));
+    canvas.text(20,33,"EXPEDIENTE  004 / SIN RESOLVER",rgb(101,127,129));
+    canvas.rect(17,50,350,1,rgb(54,79,76));
+    canvas.center(54,"PROTOCOLO",rgb(223,225,193),2);
+    canvas.center(78,"NO CONFORME",rgb(220,111,94),2);
+    canvas.center(107,"CINCO ENTREGAS. UN SOLO CRITERIO:",rgb(172,200,188));
+    canvas.center(121,"EL QUE DECIDA EL SISTEMA.",rgb(188,199,193));
+    canvas.center(136,"EL REVISOR NUNCA TERMINA SU TURNO.",rgb(126,152,148));
+    canvas.rect(39,160,306,31,rgb(26,47,49));
+    canvas.rect(39,160,306,1,rgb(156,191,151));
+    canvas.center(163,"ENTER / INGRESAR",rgb(217,220,192),2);
+    canvas.center(194,"WASD MOVER  F ESCAN  TAB RUTA  E SELLAR",rgb(114,152,153));
 }
 void HudRenderer::end(Canvas& canvas,const GameSession& game,bool victory) const {
-    canvas.clear(rgb(10,9,16));
-    if(victory) {
-        canvas.center(27,"CONTRATO CERRADO",rgb(144,223,203),2);
-        canvas.center(71,"LA ULTIMA REVISION NO ERA OBLIGATORIA.",rgb(210,219,212));
-        canvas.center(85,"HAS SALIDO DEL CICLO.",rgb(218,231,220));
-        canvas.center(111,"LA RESPUESTA FINAL FUE: NO.",rgb(144,223,203));
-    } else {
-        canvas.center(27,"NO CONFORME",rgb(224,76,83),2);
-        canvas.center(74,game.causeOfDefeat(),rgb(229,146,137));
-        canvas.center(95,"EL SISTEMA NO TE DEJO TERMINAR.",rgb(196,193,189));
-        canvas.center(110,"PUEDES INTENTARLO CON OTRO CRITERIO.",rgb(154,175,179));
+    canvas.clear(rgb(10,13,17));
+    for(int i=0;i<50;++i){
+        const unsigned hash=noiseHash(i,int(game.elapsed()),26);
+        canvas.rect(int(hash%ScreenW),int((hash>>8)%ScreenH),3,1,rgb(36,59,54));
     }
-    char stats[100]{};
+    const Color accent=victory?rgb(105,216,184):rgb(214,68,71);
+    canvas.rect(12,16,ScreenW-24,2,accent);
+    canvas.center(28,victory?"CONTRATO CERRADO":"NO CONFORME",accent,2);
+    if(victory) {
+        canvas.center(73,"EL SISTEMA NO PUEDE EXIGIR MAS.",rgb(200,212,191));
+        canvas.center(89,"HAS RECHAZADO LA ULTIMA ORDEN.",rgb(216,220,203));
+        canvas.center(111,"EL SILENCIO POR FIN ES TUYO.",accent);
+    }else{
+        canvas.center(73,game.causeOfDefeat(),rgb(238,151,139));
+        canvas.center(90,"EL REVISOR HA CERRADO EL EXPEDIENTE.",rgb(174,184,180));
+        canvas.center(111,"UNA ORDEN MAS. UN NUEVO INTENTO.",rgb(189,176,157));
+    }
+    char stats[96]{};
     std::snprintf(stats,sizeof(stats),"ENTREGAS %d/5  REVISIONES %d  TIEMPO %d S",
                   game.completed(),game.rewrites(),int(game.elapsed()));
-    canvas.center(144,stats,rgb(160,185,190));
-    canvas.center(182,"ENTER: REINICIAR   ESC: MENU",rgb(225,202,177));
+    canvas.center(141,stats,rgb(147,174,168));
+    canvas.rect(35,171,314,1,accent);
+    canvas.center(177,"ENTER: REINICIAR  ESC: MENU",rgb(232,220,193));
 }
 void HudRenderer::overlay(Canvas& canvas,const GameSession& game) const {
-    canvas.rect(0,0,ScreenW,24,rgb(8,13,21));
-    canvas.rect(0,23,ScreenW,1,rgb(51,70,77));
-    canvas.text(6,5,"PROTOCOLO / NO CONFORME",rgb(157,185,200));
-    canvas.text(6,15,game.actName(),rgb(179,115,114));
-    char label[32]{};
-    std::snprintf(label,sizeof(label),"%d/5",game.completed());
-    canvas.text(167,5,label,rgb(226,225,196));
-    canvas.text(222,5,"PRESION",rgb(207,157,152));
-    canvas.rect(270,5,107,10,rgb(41,28,38));
-    canvas.rect(272,7,int(103*game.tension()),6,
-                game.pressure()>72?rgb(232,45,58):rgb(166,80,79));
-    if(game.completed()>=5)
-        canvas.center(30,"EL REVISOR / FASE FINAL",rgb(252,111,86));
-    if(game.completed()<5&&game.rewriteSeconds()<3&&int(game.elapsed()*5)%2==0)
-        canvas.center(34,"RECONFIGURACION INMINENTE",rgb(245,83,81));
-    if(game.anchorSeconds()>0)
-        canvas.text(7,32,"ANCLA ACTIVA",rgb(107,215,214));
+    const Color accent=signal(game);
+    canvas.rect(0,0,ScreenW,37,rgb(9,17,20));
+    canvas.rect(0,35,ScreenW,2,rgb(55,84,77));
+    canvas.rect(5,3,3,29,accent);
+    canvas.text(13,1,"ARCHIVO / NO CONFORME",rgb(195,212,188));
+    canvas.text(13,17,game.actName(),rgb(144,181,167));
+    canvas.text(254,1,"PRESION",rgb(210,169,149));
+    canvas.rect(310,7,68,11,rgb(45,31,35));
+    canvas.rect(312,9,int(64*game.tension()),7,accent);
+    canvas.rect(310,19,68,2,rgb(64,74,70));
+    if(game.completed()<5&&game.rewriteSeconds()<4&&int(game.elapsed()*4)%2==0){
+        canvas.rect(0,38,ScreenW,16,rgb(47,17,21));
+        canvas.center(40,"REVISION DEL PROTOCOLO INMINENTE",rgb(244,123,117));
+    }
+    if(game.anchorSeconds()>0) {
+        canvas.rect(5,40,89,16,rgb(19,61,57));
+        canvas.text(8,42,"ANCLA ACTIVA",rgb(118,225,187));
+    }
     if(game.scanSeconds()>0) {
         const auto route=game.objectiveRoute();
         const Vec2 player=game.player();
         const Vec2 target=route.size()>1?route[1]:game.objective();
         const double angle=wrapAngle(std::atan2(target.y-player.y,target.x-player.x)-game.heading());
-        const bool behind=std::cos(angle)<-.50;
-        const int x=std::clamp(int(ScreenW/2+std::sin(angle)*115),35,ScreenW-35);
-        canvas.text(x-38,39,behind?"GIRA DETRAS":"SIGUE RUTA",rgb(235,202,130));
-        canvas.rect(x-2,50,5,5,rgb(235,202,130));
+        const bool behind=std::cos(angle)<-.5;
+        const int x=std::clamp(int(ScreenW*.5+std::sin(angle)*110),53,ScreenW-53);
+        canvas.rect(x-42,54,85,17,rgb(9,40,40));
+        canvas.text(x-37,55,behind?"GIRA / DETRAS":"SIGUE / RUTA",rgb(215,211,150));
+        canvas.rect(x-2,70,5,4,rgb(232,195,104));
     }
-    canvas.rect(0,179,ScreenW,37,rgb(8,12,18));
-    canvas.rect(0,179,ScreenW,1,rgb(54,68,75));
-    char title[100]{};
-    std::snprintf(title,sizeof(title),"ORDEN %d/5: %s  |  RUTA %d PASOS",
-                  std::min(game.completed()+1,5),game.objectiveName().c_str(),
-                  std::max(0,game.routeSteps()));
-    if(game.completed()>=5)
-        std::snprintf(title,sizeof(title),"OBJETIVO FINAL: RECHAZAR EN EL NUCLEO | %d PASOS",
-                      std::max(0,game.routeSteps()));
-    canvas.text(5,184,title,rgb(228,225,200));
-    char status[100]{};
+    canvas.rect(0,171,ScreenW,45,rgb(8,17,20));
+    canvas.rect(0,170,ScreenW,1,rgb(72,102,94));
+    const int route=std::max(0,game.routeSteps());
+    char primary[90]{};
     if(game.completed()<5)
-        std::snprintf(status,sizeof(status),"TAB: RUTA  F: RASTREAR  E: SELLAR  CAMBIO %02dS  ANCLAS %d",
-                      int(std::max(0.0,game.rewriteSeconds())),game.anchors());
+        std::snprintf(primary,sizeof(primary),"ORDEN %d/5: %s  |  RUTA %d PASOS",
+                      game.completed()+1,game.objectiveName().c_str(),route);
     else
-        std::snprintf(status,sizeof(status),"SIGUE EL PLANO (TAB) Y PULSA R JUNTO AL NUCLEO");
-    canvas.text(5,197,status,rgb(122,158,165));
+        std::snprintf(primary,sizeof(primary),"ORDEN FINAL: ENCUENTRA EL NUCLEO  |  %d PASOS",route);
+    canvas.text(8,172,primary,rgb(231,224,188));
+    char secondary[96]{};
+    if(game.completed()<5)
+        std::snprintf(secondary,sizeof(secondary),
+                      "TAB: MAPA  F: RASTREO  E: SELLAR  CAMBIO %02d S",
+                      int(std::max(0.0,game.rewriteSeconds())));
+    else
+        std::snprintf(secondary,sizeof(secondary),"TAB: MAPA  R: RECHAZAR EN EL NUCLEO");
+    canvas.text(8,191,secondary,rgb(131,179,164));
+    stripe(canvas,214,rgb(45,70,63));
     if(game.notificationSeconds()>0) {
-        canvas.rect(0,161,ScreenW,15,rgb(18,16,22));
-        canvas.center(165,game.notification(),rgb(236,156,143));
+        canvas.rect(0,149,ScreenW,19,rgb(20,29,31));
+        canvas.rect(0,149,3,19,rgb(182,104,91));
+        canvas.center(151,game.notification(),rgb(229,179,152));
     }
     const int nearby=game.nearbyTerminal();
-    if(game.completed()<5&&nearby>=0&&nearby!=game.activeTerminal()) {
-        canvas.rect(59,136,266,20,rgb(40,18,24));
-        canvas.center(142,"PANEL INCORRECTO - BUSCA EL ILUMINADO",rgb(240,146,137));
+    if(game.completed()<5&&nearby>=0&&nearby!=game.activeTerminal()){
+        canvas.rect(54,129,ScreenW-108,19,rgb(65,20,27));
+        canvas.center(130,"PANEL INCORRECTO / BUSCA EL ILUMINADO",rgb(239,148,132));
     }
-    if(game.objectiveNearby()) {
-        canvas.rect(89,139,206,17,rgb(11,28,32));
-        if(game.completed()<5) {
-            canvas.center(143,"OBJETIVO CORRECTO: MANTEN E",rgb(190,233,218));
-            canvas.rect(100,155,int(184*std::clamp(game.interactionProgress()/1.18,0.0,1.0)),
-                        2,rgb(112,215,193));
-        } else canvas.center(143,"PULSA R PARA DECIR NO",rgb(190,233,218));
+    if(game.objectiveNearby()){
+        canvas.rect(54,126,ScreenW-108,21,rgb(16,61,55));
+        if(game.completed()<5){
+            canvas.center(128,"PANEL CORRECTO: MANTEN E",rgb(213,236,196));
+            canvas.rect(64,147,int(254*std::clamp(game.interactionProgress()/1.18,0.0,1.0)),
+                        2,rgb(119,226,185));
+        }else
+            canvas.center(128,"NIEGATE: PULSA R",rgb(225,231,187));
     }
 }
 void HudRenderer::draw(Canvas& canvas,const GameSession& game,const Input& input) const {
-    switch(game.phase()) {
+    switch(game.phase()){
     case Phase::Menu: menu(canvas,game);return;
-    case Phase::Defeat: end(canvas,game,false);return;
-    case Phase::Victory: end(canvas,game,true);return;
-    case Phase::Playing:
-    case Phase::Paused: break;
+    case Phase::Defeat:end(canvas,game,false);return;
+    case Phase::Victory:end(canvas,game,true);return;
+    case Phase::Playing:case Phase::Paused:break;
     }
     overlay(canvas,game);
-    if(input.held(9)) map(canvas,game);
-    if(game.phase()==Phase::Paused) {
-        canvas.rect(54,69,ScreenW-108,74,rgb(7,12,20));
-        canvas.center(79,"PAUSA",rgb(214,223,214),2);
-        canvas.center(111,"P / ESC PARA CONTINUAR",rgb(159,190,196));
+    if(input.held(9))map(canvas,game);
+    if(game.phase()==Phase::Paused){
+        canvas.rect(46,67,ScreenW-92,77,rgb(6,18,21));
+        canvas.rect(46,67,ScreenW-92,2,rgb(141,184,163));
+        canvas.center(78,"SISTEMA SUSPENDIDO",rgb(211,213,189),2);
+        canvas.center(110,"P / ESC PARA CONTINUAR",rgb(157,192,176));
     }
 }
 }
