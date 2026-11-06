@@ -45,6 +45,42 @@ void HudRenderer::map(Canvas& canvas,const GameSession& game) const {
     canvas.text(left,top+MapH*scale+17,"AZUL: RUTA",rgb(119,209,209));
     canvas.text(left,top+MapH*scale+30,"ROJO: REVISOR",rgb(225,100,104));
 }
+void HudRenderer::miniMap(Canvas& canvas,const GameSession& game) const {
+    // Always-visible, north-up minimap. The gold/green target is the
+    // objective, while the Revisor is RED and the player is WHITE.
+    constexpr int scale=3;
+    constexpr int left=ScreenW-MapW*scale-9;
+    constexpr int top=57;
+    constexpr int width=MapW*scale;
+    canvas.rect(left-6,top-19,width+12,width+33,rgb(7,19,22));
+    canvas.rect(left-6,top-19,width+12,2,rgb(106,178,159));
+    canvas.text(left-1,top-18,"OBJ / RUTA",rgb(190,227,202));
+    const Maze& maze=game.maze();
+    for(int y=0;y<MapH;++y)for(int x=0;x<MapW;++x)
+        canvas.rect(left+x*scale,top+y*scale,scale,scale,
+                    maze.wall(x,y)?rgb(47,61,65):rgb(12,26,30));
+    for(const Vec2 tile:game.objectiveRoute())
+        canvas.rect(left+cell(tile.x)*scale,top+cell(tile.y)*scale,
+                    scale,scale,rgb(45,111,122));
+    const Vec2 objective=game.objective();
+    const int goalX=left+cell(objective.x)*scale;
+    const int goalY=top+cell(objective.y)*scale;
+    canvas.rect(goalX-1,goalY-1,scale+2,scale+2,
+                game.completed()>=5?rgb(90,233,171):rgb(248,206,94));
+    const Vec2 revisor=game.revisor();
+    const int enemyX=left+cell(revisor.x)*scale;
+    const int enemyY=top+cell(revisor.y)*scale;
+    canvas.rect(enemyX,enemyY,scale,scale,rgb(234,49,60));
+    const Vec2 player=game.player();
+    const int playerX=left+cell(player.x)*scale;
+    const int playerY=top+cell(player.y)*scale;
+    canvas.rect(playerX-1,playerY-1,scale+2,scale+2,rgb(247,247,219));
+    // Heading makes the player's orientation readable even at 3 px/tile.
+    const int vx=int(std::round(std::cos(game.heading())*4));
+    const int vy=int(std::round(std::sin(game.heading())*4));
+    canvas.rect(playerX+1+vx,playerY+1+vy,2,2,rgb(247,247,219));
+    canvas.text(left,top+width+2,"O: OBJ  R: ENEM",rgb(174,184,163));
+}
 void HudRenderer::menu(Canvas& canvas,const GameSession& game) const {
     canvas.clear(rgb(8,13,17));
     for(int y=0;y<ScreenH;++y)for(int x=0;x<ScreenW;++x){
@@ -115,16 +151,24 @@ void HudRenderer::overlay(Canvas& canvas,const GameSession& game) const {
         canvas.rect(5,40,89,16,rgb(19,61,57));
         canvas.text(8,42,"ANCLA ACTIVA",rgb(118,225,187));
     }
+    // The guide follows the next traversable corridor of the objective
+    // route. The enemy is never used for objective guidance.
+    const auto route=game.objectiveRoute();
+    const Vec2 player=game.player();
+    const Vec2 waypoint=route.size()>1?route[1]:game.objective();
+    const double bearing=wrapAngle(
+        std::atan2(waypoint.y-player.y,waypoint.x-player.x)-game.heading());
+    const char* direction=std::abs(bearing)<.40?"FRENTE":
+                          std::abs(bearing)>2.75?"DETRAS":
+                          bearing<0?"IZQUIERDA":"DERECHA";
+    canvas.rect(7,40,209,19,rgb(10,31,32));
+    canvas.rect(7,40,3,19,rgb(233,196,103));
+    char nav[72]{};
+    std::snprintf(nav,sizeof(nav),"RUTA AL OBJ: %s",direction);
+    canvas.text(13,41,nav,rgb(241,218,145));
     if(game.scanSeconds()>0) {
-        const auto route=game.objectiveRoute();
-        const Vec2 player=game.player();
-        const Vec2 target=route.size()>1?route[1]:game.objective();
-        const double angle=wrapAngle(std::atan2(target.y-player.y,target.x-player.x)-game.heading());
-        const bool behind=std::cos(angle)<-.5;
-        const int x=std::clamp(int(ScreenW*.5+std::sin(angle)*110),53,ScreenW-53);
-        canvas.rect(x-42,54,85,17,rgb(9,40,40));
-        canvas.text(x-37,55,behind?"GIRA / DETRAS":"SIGUE / RUTA",rgb(215,211,150));
-        canvas.rect(x-2,70,5,4,rgb(232,195,104));
+        canvas.rect(7,61,238,20,rgb(9,39,41));
+        canvas.text(12,62,"ESCAN: SIGUE LA RUTA AZUL",rgb(130,226,201));
     }
     canvas.rect(0,171,ScreenW,45,rgb(8,17,20));
     canvas.rect(0,170,ScreenW,1,rgb(72,102,94));
@@ -173,6 +217,7 @@ void HudRenderer::draw(Canvas& canvas,const GameSession& game,const Input& input
     case Phase::Playing:case Phase::Paused:break;
     }
     overlay(canvas,game);
+    miniMap(canvas,game);
     if(input.held(9))map(canvas,game);
     if(game.phase()==Phase::Paused){
         canvas.rect(46,67,ScreenW-92,77,rgb(6,18,21));
