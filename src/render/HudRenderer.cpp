@@ -156,9 +156,9 @@ void HudRenderer::overlay(Canvas& canvas,const GameSession& game) const {
     }
     // The guide follows the next traversable corridor of the objective
     // route. The enemy is never used for objective guidance.
-    const auto route=game.objectiveRoute();
+    const auto routePath=game.objectiveRoute();
     const Vec2 player=game.player();
-    const Vec2 waypoint=route.size()>1?route[1]:game.objective();
+    const Vec2 waypoint=routePath.size()>1?routePath[1]:game.objective();
     const double bearing=wrapAngle(
         std::atan2(waypoint.y-player.y,waypoint.x-player.x)-game.heading());
     const char* direction=std::abs(bearing)<.40?"FRENTE":
