@@ -7,7 +7,7 @@
 namespace horror {
 namespace {
 constexpr std::array<Color,4> TerminalColors{
-    rgb(225,166,110),rgb(112,196,217),rgb(216,213,196)
+    rgb(225,166,110),rgb(112,196,217),rgb(216,213,196),rgb(196,139,208)
 };
 void drawObjectiveBeacon(Canvas& canvas,const GameSession& game,
                          Vec2 direction,Vec2 plane,int horizon,
