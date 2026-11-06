@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.21)
-project(HorrorMe VERSION 0.3.0 LANGUAGES CXX)
+project(HorrorMe VERSION 0.4.0 LANGUAGES CXX)
 
 # Statically link the MSVC runtime: the released .exe does not require
 # a separate Visual C++ Redistributable installation.
@@ -14,6 +14,9 @@ add_executable(HorrorMe WIN32
     src/core/RevisorAI.cpp
     src/core/Session.cpp
     src/render/Canvas.cpp
+    src/render/FontAtlas.cpp
+    src/render/MaterialArtist.cpp
+    src/render/Atmosphere.cpp
     src/render/SceneRenderer.cpp
     src/render/HudRenderer.cpp
 )
@@ -52,4 +55,29 @@ if(BUILD_TESTING)
         target_compile_options(HorrorCoreTests PRIVATE -Wall -Wextra -Wpedantic)
     endif()
     add_test(NAME HorrorCoreTests COMMAND HorrorCoreTests)
+endif()
+
+# Headless checks of procedural artwork and the baked Annapurna typography.
+if(BUILD_TESTING)
+    add_executable(HorrorRenderTests
+        tests/RenderTests.cpp
+        src/core/Maze.cpp
+        src/core/RevisorAI.cpp
+        src/core/Session.cpp
+        src/render/Canvas.cpp
+        src/render/FontAtlas.cpp
+        src/render/MaterialArtist.cpp
+        src/render/Atmosphere.cpp
+        src/render/SceneRenderer.cpp
+        src/render/HudRenderer.cpp
+    )
+    target_compile_features(HorrorRenderTests PRIVATE cxx_std_20)
+    set_target_properties(HorrorRenderTests PROPERTIES CXX_EXTENSIONS OFF)
+    target_include_directories(HorrorRenderTests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+    if(MSVC)
+        target_compile_options(HorrorRenderTests PRIVATE /W4 /permissive- /utf-8)
+    else()
+        target_compile_options(HorrorRenderTests PRIVATE -Wall -Wextra -Wpedantic)
+    endif()
+    add_test(NAME HorrorRenderTests COMMAND HorrorRenderTests)
 endif()

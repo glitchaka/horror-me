@@ -55,3 +55,11 @@ Estas decisiones aplican los principios al alcance actual; no implican que toda 
 `tests/CoreTests.cpp` prueba laberintos de diferentes semillas, mutaciones sin pérdida de acceso, avance del perseguidor y estados de partida. `.github/workflows/windows.yml` compila juego y pruebas con MSVC Release y ejecuta CTest.
 
 Pendiente: pruebas manuales de interacción, experiencia audiovisual, accesibilidad, dificultad y estrés sostenido.
+
+## Subsistema visual (v0.4.0)
+- `MaterialArtist`: calcula materiales del mundo en coordenadas estables, luz local, sector y degradación. Sin dependencias Win32 ni estado mutable.
+- `Atmosphere`: procesa el framebuffer 3D antes de la interfaz con viñeta, ruido y anomalías localizadas por presión.
+- `FontAtlas`: glifos rasterizados de Annapurna SIL Regular y Bold, empaquetados a 2 bits por píxel. No distribuye archivos TTF originales.
+- `SceneRenderer`: coordina la proyección de techo/suelo, paredes, paneles murales, Revisor y posproceso atmosférico.
+- `HudRenderer`: dossier institucional opresivo con objetivos y controles legibles; no recibe el posproceso visual, garantizando contraste.
+- `tests/RenderTests.cpp`: comprueba atlas, materiales y dibujo 3D junto al HUD sin requerir una ventana.

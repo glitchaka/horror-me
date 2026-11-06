@@ -41,3 +41,6 @@ El terror surge de la incertidumbre, el espacio estrecho, la proximidad de El Re
 
 ## Validación pendiente
 La CI comprueba compilación de Windows y pruebas unitarias del núcleo. Todavía se requiere una sesión visual e interactiva en Windows para calibrar dificultad, ratón, fidelidad de audio, escalado GDI y legibilidad del HUD.
+
+## Dirección artística aplicada (v0.4.0)
+Los sectores no se distinguen por una paleta arbitraria: la variación de superficies, el deterioro y el patrón de iluminación mantienen una identidad industrial burocrática. La presión creciente degrada la imagen; la advertencia jamás elimina la información necesaria para jugar. El Revisor no es una puerta ni una terminal: su nueva silueta conserva dos ojos luminosos, brazos demasiado largos y un uniforme de inspección. El arte y el procesamiento visual están encapsulados en componentes C++ independientes.

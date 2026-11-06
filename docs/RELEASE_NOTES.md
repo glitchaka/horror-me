@@ -1,18 +1,18 @@
-# PROTOCOLO: NO CONFORME — Versión 0.3.0 (Windows x64)
+# PROTOCOLO: NO CONFORME — v0.4.0 (Windows x64)
 
-### Correcciones
-- Terminales de misión y panel final representados como dispositivos empotrados en paredes, sin objetos similares a puertas en medio del pasillo.
-- Mejor orientación: orden y número de entrega claros, distancia en pasos, camino marcado en el plano (Tab) y escáner (F) hacia el siguiente segmento transitable.
-- Advertencia de terminal incorrecta y señal clara al estar junto a la terminal adecuada.
-- Los cambios de mapa preservan paredes con paneles; comprobado mediante pruebas del núcleo.
+### Rework visual
+- Nuevos materiales industriales dibujados por código: azulejos rotos, metal oxidado, hormigón húmedo y mobiliario de archivos.
+- Piso y techo con textura procedural anclada al espacio y perspectiva 3D.
+- Iluminación irregular con lámparas localizadas y sectores de emergencia.
+- Posprocesamiento: niebla distante, viñeta, ruido y anomalías visuales graduales por presión.
+- Rediseño del Revisor con silueta inhumana, uniforme y ojos luminosos.
+- Paneles murales con estructura industrial, indicadores de estado y marcos de señalización.
+- Nuevo HUD como expediente de auditoría: orden y ruta claramente visibles, mejor jerarquía y estética opresiva.
+- **Annapurna SIL Regular y Bold**, rasterizadas y empotradas en código como atlas de glifos, sin requerir instalar fuentes.
+- Nuevas pruebas automáticas de tipografía, materiales, composición de pantalla y render.
 
 ### Plataforma
-- Windows x64 nativo, C++20, GDI, WinMM.
-- Se retiró del árbol de código el port experimental Android; fue solo una prueba puntual.
+C++20 nativo para Windows x64. No se incluyen clientes Android ni tecnología web.
 
-### Publicación
-- `HorrorMe-Windows-x64.exe` y archivo de verificación SHA-256.
-- La compilación Windows y las pruebas automáticas deben pasar antes de publicar.
-
-### Pendiente
-Verificación manual visual, legibilidad de paneles en distintas distancias, equilibrado de IA y controles.
+### Nota de calidad
+Se ha validado la compilación de Windows y el conjunto de pruebas de CI antes de publicar. No equivale a una validación manual de la experiencia audiovisual.

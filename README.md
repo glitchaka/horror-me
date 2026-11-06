@@ -1,6 +1,6 @@
 # PROTOCOLO: NO CONFORME
 
-Videojuego nativo de horror sistémico en primera persona desarrollado con **C++20** para Windows. Renderizado por software Win32/GDI, audio procedural WinMM y generación de laberintos por código. **No contiene HTML, CSS, JavaScript ni WebView.**
+Videojuego nativo de horror sistémico en primera persona desarrollado con **C++20** para Windows. Renderizado por software Win32/GDI, audio procedural WinMM y generación de laberintos por código. Incluye un rework de arte industrial, luces dinámicas y tipografía Annapurna SIL rasterizada. **No contiene HTML, CSS, JavaScript ni WebView.**
 
 ## La experiencia
 
@@ -65,3 +65,13 @@ La construcción se comprueba en GitHub Actions con MSVC Release y CTest. Las pr
 ## Regla de navegación
 
 Las terminales y el panel del núcleo están integrados en los muros; no bloquean los pasillos. Cada orden señala el panel correcto y su distancia por ruta. Pulsa `Tab` para consultar el trayecto marcado en azul o `F` para escanear la dirección del siguiente tramo. Acércate al panel iluminado y mantén `E`; los paneles incorrectos muestran una advertencia. Al finalizar las cinco entregas, localiza el núcleo, acércate y pulsa `R`.
+
+## Dirección visual v0.4.0
+
+La puesta en escena diferencia azulejos administrativos rotos, paredes metálicas oxidadas, hormigón húmedo y archivos industriales. El suelo y el techo se dibujan en perspectiva a partir de coordenadas del mundo; incluye focos intermitentes, lámparas de emergencia, agua, señalización, neblina de distancia y una degradación visual modulada por la presión.
+
+El Revisor tiene una silueta alargada y asimétrica, rostro eclipsado por el resplandor de sus ojos, uniforme de inspección y extremidades imposibles. Los terminales se representan como consolas industriales integradas en paredes.
+
+El HUD utiliza glifos antialias de las fuentes **Annapurna SIL Regular y Bold**, integrados como un atlas rasterizado en C++. No es necesario instalar los archivos TTF. El UI mantiene visible la orden, distancia y ruta en el mapa incluso durante episodios de interferencia.
+
+**Calidad:** compilación y pruebas automatizadas sobre el renderizado antes de publicar; todavía es necesaria una evaluación manual de legibilidad, contraste, ritmo y atmósfera en Windows.
