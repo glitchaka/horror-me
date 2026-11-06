@@ -2,15 +2,13 @@
 #include "horror/HudRenderer.hpp"
 #include "horror/IAudio.hpp"
 #include "horror/Input.hpp"
-#include "horror/PixelViewport.hpp"
+#include "horror/PixelPresenter.hpp"
 #include "horror/SceneRenderer.hpp"
 #include "horror/Session.hpp"
 #include <windows.h>
 #include <algorithm>
 #include <cmath>
-#include <cstring>
 #include <memory>
-#include <vector>
 
 namespace horror {
 namespace {
@@ -22,7 +20,7 @@ class WinApp final {
     SceneRenderer scene_{};
     HudRenderer hud_{};
     std::unique_ptr<IAudio> audio_{makeNativeAudio()};
-    std::vector<Color> output_{};
+    PixelPresenter presenter_{};
     RECT windowedRect_{};
     bool fullscreen_{false};
     bool focused_{true};
@@ -159,37 +157,13 @@ class WinApp final {
         bitmap.bmiHeader.biBitCount=32;
         bitmap.bmiHeader.biCompression=BI_RGB;
 
-        const PixelViewport viewport=calculatePixelViewport(width,height);
-        if(viewport.width<=width&&viewport.height<=height) {
-            // CPU nearest-neighbor upscale to *physical* pixels.
-            // GDI only copies the resulting DIB at 1:1: no interpolation,
-            // fractional scaling or DPI virtualization can blur it.
-            output_.resize(static_cast<std::size_t>(width)*height);
-            std::fill(output_.begin(),output_.end(),Color{0});
-            const Color* const src=canvas_.data();
-            for(int sy=0;sy<ScreenH;++sy) {
-                const int dy=viewport.y+sy*viewport.scale;
-                Color* row=output_.data()+static_cast<std::size_t>(dy)*width+viewport.x;
-                for(int sx=0;sx<ScreenW;++sx)
-                    std::fill_n(row+sx*viewport.scale,viewport.scale,
-                                src[sy*ScreenW+sx]);
-                for(int repeat=1;repeat<viewport.scale;++repeat)
-                    std::memcpy(row+static_cast<std::size_t>(repeat)*width,row,
-                                static_cast<std::size_t>(viewport.width)*sizeof(Color));
-            }
-            bitmap.bmiHeader.biWidth=width;
-            bitmap.bmiHeader.biHeight=-height;
-            SetDIBitsToDevice(dc,0,0,width,height,0,0,0,height,
-                              output_.data(),&bitmap,DIB_RGB_COLORS);
-        } else {
-            // Very small displays cannot show a full 384x216 frame at
-            // integer scale; clip at native pixel resolution instead.
-            bitmap.bmiHeader.biWidth=ScreenW;
-            bitmap.bmiHeader.biHeight=-ScreenH;
-            const int x=(width-ScreenW)/2,y=(height-ScreenH)/2;
-            SetDIBitsToDevice(dc,x,y,ScreenW,ScreenH,0,0,0,ScreenH,
-                              canvas_.data(),&bitmap,DIB_RGB_COLORS);
-        }
+        // The presenter expands each source pixel as a solid integer block;
+        // GDI receives a fully composed client-sized bitmap at 1:1.
+        const auto& pixels=presenter_.compose(canvas_.data(),width,height);
+        bitmap.bmiHeader.biWidth=width;
+        bitmap.bmiHeader.biHeight=-height;
+        SetDIBitsToDevice(dc,0,0,width,height,0,0,0,height,
+                          pixels.data(),&bitmap,DIB_RGB_COLORS);
         ReleaseDC(window_,dc);
     }
     void frame(double delta) {
