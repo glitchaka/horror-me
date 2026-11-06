@@ -1,18 +1,17 @@
-# PROTOCOLO: NO CONFORME — v0.4.0 (Windows x64)
+# PROTOCOLO: NO CONFORME — v0.4.1 (Windows x64)
 
-### Rework visual
-- Nuevos materiales industriales dibujados por código: azulejos rotos, metal oxidado, hormigón húmedo y mobiliario de archivos.
-- Piso y techo con textura procedural anclada al espacio y perspectiva 3D.
-- Iluminación irregular con lámparas localizadas y sectores de emergencia.
-- Posprocesamiento: niebla distante, viñeta, ruido y anomalías visuales graduales por presión.
-- Rediseño del Revisor con silueta inhumana, uniforme y ojos luminosos.
-- Paneles murales con estructura industrial, indicadores de estado y marcos de señalización.
-- Nuevo HUD como expediente de auditoría: orden y ruta claramente visibles, mejor jerarquía y estética opresiva.
-- **Annapurna SIL Regular y Bold**, rasterizadas y empotradas en código como atlas de glifos, sin requerir instalar fuentes.
-- Nuevas pruebas automáticas de tipografía, materiales, composición de pantalla y render.
+### Correcciones visuales y de ventana
+- Escalado **pixel-perfect**: aumento entero del framebuffer a los píxeles físicos de pantalla, sin suavizado, con bandas negras cuando la resolución no es múltiplo exacto.
+- Per-monitor DPI awareness configurada antes de crear la ventana para evitar doble escalado de Windows.
+- Nueva presentación sin decoración: pantalla completa sin bordes de inicio. **F11** o **Alt+Enter** alternan con ventana sin bordes.
+- Minimap permanente con jugador blanco, objetivo dorado, ruta azul y Revisor rojo. `Tab` conserva el mapa ampliado.
+- Eliminada la cruceta central estática: ya no apunta accidentalmente al enemigo.
+- Marcador del objetivo ligado al panel correcto, cuando está a la vista; indicación de siguiente tramo de ruta cuando aún se encuentra tras un muro.
+- Glifos de Annapurna SIL renderizados con píxeles nítidos.
+- Pruebas automatizadas de composición sin filtrado a 3×/5×, minimapa y ubicación del marcador del objetivo.
 
 ### Plataforma
-C++20 nativo para Windows x64. No se incluyen clientes Android ni tecnología web.
+Windows x64 nativo en C++20, Win32/GDI y WinMM. Sin Android ni tecnologías web.
 
-### Nota de calidad
-Se ha validado la compilación de Windows y el conjunto de pruebas de CI antes de publicar. No equivale a una validación manual de la experiencia audiovisual.
+### Calidad
+Compilación y pruebas automatizadas de Windows. Falta comprobar el comportamiento a escala visual en diferentes monitores y configuraciones de DPI.

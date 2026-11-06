@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.21)
-project(HorrorMe VERSION 0.4.0 LANGUAGES CXX)
+project(HorrorMe VERSION 0.4.1 LANGUAGES CXX)
 
 # Statically link the MSVC runtime: the released .exe does not require
 # a separate Visual C++ Redistributable installation.
@@ -17,6 +17,7 @@ add_executable(HorrorMe WIN32
     src/render/FontAtlas.cpp
     src/render/MaterialArtist.cpp
     src/render/Atmosphere.cpp
+    src/render/PixelPresenter.cpp
     src/render/SceneRenderer.cpp
     src/render/HudRenderer.cpp
 )
@@ -68,6 +69,7 @@ if(BUILD_TESTING)
         src/render/FontAtlas.cpp
         src/render/MaterialArtist.cpp
         src/render/Atmosphere.cpp
+        src/render/PixelPresenter.cpp
         src/render/SceneRenderer.cpp
         src/render/HudRenderer.cpp
     )

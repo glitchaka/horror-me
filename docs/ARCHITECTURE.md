@@ -63,3 +63,11 @@ Pendiente: pruebas manuales de interacción, experiencia audiovisual, accesibili
 - `SceneRenderer`: coordina la proyección de techo/suelo, paredes, paneles murales, Revisor y posproceso atmosférico.
 - `HudRenderer`: dossier institucional opresivo con objetivos y controles legibles; no recibe el posproceso visual, garantizando contraste.
 - `tests/RenderTests.cpp`: comprueba atlas, materiales y dibujo 3D junto al HUD sin requerir una ventana.
+
+## Presentación y navegación (v0.4.1)
+
+- `PixelViewport`: calcula el factor entero de escala y los márgenes de letterboxing en píxeles físicos.
+- `PixelPresenter`: convierte el framebuffer de 384×216 en una imagen del tamaño del cliente aplicando **solo replicación de píxeles**, sin filtros. Es independiente de Win32 y puede probarse en CI.
+- `WinApp`: administra la ventana `WS_POPUP`, resolución del monitor, conmutación F11/Alt+Enter, DPI aware por monitor y `SetDIBitsToDevice` 1:1. No implementa algoritmos de escalado.
+- `HudRenderer`: minimapa permanente y mapa ampliado separados; guía al objetivo mediante la ruta y usa colores distintos para objetivo y perseguidor.
+- `SceneRenderer`: sin mira fija; las marcas de objetivo se proyectan sobre el panel mural y quedan detrás del sprite del enemigo si se cruzan.

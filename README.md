@@ -33,11 +33,12 @@ Con Visual Studio, el ejecutable queda en `build/Release/HorrorMe.exe`. Para otr
 | W / S | Avanzar / retroceder |
 | A / D | Desplazamiento lateral |
 | Ratón o flechas izquierda / derecha | Girar |
+| F11 o Alt+Enter | Alternar pantalla completa / ventana sin bordes |
 | Shift | Correr |
 | E (mantener) | Sellar la terminal correcta |
 | F | Escanear la dirección del objetivo |
 | Q | Activar un ancla |
-| Tab (mantener) | Consultar el plano |
+| Tab (mantener) | Consultar el plano ampliado; el minimapa siempre está visible |
 | P / Esc | Pausar / continuar |
 | M | Silenciar |
 | Enter | Comenzar / reiniciar |
@@ -75,3 +76,11 @@ El Revisor tiene una silueta alargada y asimétrica, rostro eclipsado por el res
 El HUD utiliza glifos antialias de las fuentes **Annapurna SIL Regular y Bold**, integrados como un atlas rasterizado en C++. No es necesario instalar los archivos TTF. El UI mantiene visible la orden, distancia y ruta en el mapa incluso durante episodios de interferencia.
 
 **Calidad:** compilación y pruebas automatizadas sobre el renderizado antes de publicar; todavía es necesaria una evaluación manual de legibilidad, contraste, ritmo y atmósfera en Windows.
+
+## Presentación v0.4.1
+
+La ventana de Windows se abre en **pantalla completa sin bordes**. Con **F11** o **Alt+Enter** alterna a **ventana sin decoración** (y viceversa). El modo ventana se puede desplazar arrastrando la parte superior del HUD mientras el ratón está libre (menú o pausa).
+
+La imagen lógica permanece en **384 × 216 píxeles**; un presentador independiente la amplía exclusivamente por **factores enteros**, copiando cada píxel en bloques cuadrados exactos. El área sobrante se muestra en negro. Windows recibe un bitmap a resolución física 1:1, con conciencia de DPI por monitor, sin filtros de suavizado ni interpolación. La tipografía Annapurna SIL conserva sus glifos, con cobertura de píxel nítida.
+
+El **minimapa es permanente** (esquina superior derecha). Blanco: jugador; dorado: terminal correcta; rojo: Revisor; azul: recorrido. El indicador de navegación muestra la siguiente dirección hacia el objetivo, y las marcas de mundo solo aparecen sobre el panel objetivo visible. Se eliminó la cruceta fija que confundía al Revisor con el objetivo. Mantener `Tab` abre el mapa ampliado.
