@@ -32,17 +32,11 @@ void Canvas::text(int x,int y,const std::string& text,Color color,int scale) {
             for(int xx=0;xx<width;++xx){
                 const int px=x+xx;
                 if(px<0||px>=ScreenW)continue;
-                const int alpha=font.alpha(letter,large,xx,yy);
-                if(!alpha)continue;
-                const std::size_t index=static_cast<std::size_t>(py*ScreenW+px);
-                if(alpha>=3){pixels_[index]=color;continue;}
-                const Color prior=pixels_[index];
-                const double weight=double(alpha)/3.0;
-                const auto mix=[&](int shift){
-                    return int(((prior>>shift)&255)*(1.0-weight)+
-                               ((color>>shift)&255)*weight);
-                };
-                pixels_[index]=rgb(mix(16),mix(8),mix(0));
+                // Hard coverage at the logical pixel grid: the font
+                // remains Annapurna SIL, but no semitransparent halo is
+                // enlarged into visibly blurred screen pixels.
+                if(font.alpha(letter,large,xx,yy)<2)continue;
+                pixels_[static_cast<std::size_t>(py*ScreenW+px)]=color;
             }
         }
         x+=width+1;
