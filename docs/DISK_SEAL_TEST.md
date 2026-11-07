@@ -20,7 +20,7 @@ El USB permitido es aquel en el que se crea el sello durante la emisión:
 firma su vínculo con el Installation ID interno del HorrorMe.exe personalizado.
 
 Ya existe una CLI administrativa en `glitchaka/disk-seal` que automatiza esa
-emisión. En un equipo Windows de confianza, con la carpeta `C:\\SST-Admin`
+emisión. En un equipo Windows de confianza, con la carpeta `C:\SST-Admin`
 y la herramienta `disk-seal.exe` compilada:
 
 ```powershell
@@ -47,12 +47,6 @@ cuenta administradora. **No se copia al pendrive de Juan**. La carpeta
 
 Las instrucciones completas están en
 [PROVISIONING_WINDOWS.md](https://github.com/glitchaka/disk-seal/blob/main/docs/PROVISIONING_WINDOWS.md).
-
-1. Personalizar una copia del HorrorMe.exe protegido mediante disk-seal, incorporándole un ID único.
-2. Copiar ese ejecutable al USB final y generar installation.seal allí mismo, con aplicación horror-me.
-3. Fuera del USB, firmar los bytes exactos del sello mediante SignedLicense::issue y la clave privada de la autoridad.
-4. Guardar los dos archivos en data/installation.seal y data/installation.license, al lado del HorrorMe.exe personalizado.
-5. Ejecutar HorrorMe.exe --disk-seal-check para validar sin interfaz: retorno 0 válido, 21 sin ID, 22 sello, licencia o USB inválido.
 
 La firma Authenticode de Windows, si se usa, debe aplicarse DESPUÉS de personalizar el ejecutable. La clave privada de licencias jamás se distribuye con el juego ni se incluye en este repositorio.
 
