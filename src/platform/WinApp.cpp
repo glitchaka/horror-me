@@ -5,6 +5,9 @@
 #include "horror/PixelPresenter.hpp"
 #include "horror/SceneRenderer.hpp"
 #include "horror/Session.hpp"
+#if defined(HORROR_ENABLE_DISK_SEAL)
+#include "horror/InstallationGuard.hpp"
+#endif
 #include <windows.h>
 #include <algorithm>
 #include <cmath>
@@ -245,7 +248,19 @@ public:
 };
 }
 }
-int WINAPI wWinMain(HINSTANCE instance,HINSTANCE,LPWSTR,int showCommand) {
+int WINAPI wWinMain(HINSTANCE instance,HINSTANCE,LPWSTR arguments,int showCommand) {
+#if defined(HORROR_ENABLE_DISK_SEAL)
+    // Always enforce inside the GAME before initializing rendering/audio.
+    const auto decision = horror::security::verifyCurrentInstallation();
+    if (horror::security::isInstallationProbe(arguments)) return decision.code;
+    if (decision.code != 0) {
+        MessageBoxW(nullptr,decision.explanation.c_str(),
+                    L"HorrorMe - instalación no autorizada",MB_OK | MB_ICONERROR);
+        return decision.code;
+    }
+#else
+    (void)arguments;
+#endif
     horror::WinApp app;
     return app.run(instance,showCommand);
 }
