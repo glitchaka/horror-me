@@ -9,4 +9,4 @@ crate-type = ["staticlib"]
 
 [dependencies]
 anyhow = "1"
-disk-seal = { git = "https://github.com/glitchaka/disk-seal.git", rev = "2d8131b2a9e366d1b47326c75d68d69a9e88d45b" }
+disk-seal = { git = "https://github.com/glitchaka/disk-seal.git", rev = "e92fdf231bbfb13955b482ccc83a543dc11eba42" }
