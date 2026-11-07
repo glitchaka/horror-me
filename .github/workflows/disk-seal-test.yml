@@ -1,0 +1,82 @@
+name: Test protected HorrorMe with disk-seal
+
+on:
+  push:
+    branches: [test/disk-seal-integration]
+    paths:
+      - "security/**"
+      - "src/security/**"
+      - "include/horror/InstallationGuard.hpp"
+      - "src/platform/WinApp.cpp"
+      - "CMakeLists.txt"
+      - ".github/workflows/disk-seal-test.yml"
+  pull_request:
+    paths:
+      - "security/**"
+      - "src/security/**"
+      - "include/horror/InstallationGuard.hpp"
+      - "src/platform/WinApp.cpp"
+      - "CMakeLists.txt"
+      - ".github/workflows/disk-seal-test.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  guarded-game:
+    name: Native Windows x64 protected game
+    runs-on: windows-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: security/seal-bridge
+      - name: Generate ephemeral Ed25519 public verification key
+        id: verifier
+        shell: pwsh
+        run: |
+          $public = (cargo run --quiet --manifest-path security/seal-bridge/Cargo.toml --bin seal-test-fixture -- public-key).Trim()
+          if ($LASTEXITCODE -ne 0 -or $public -notmatch '^[a-f0-9]{64}$') {
+            throw 'Cannot create a temporary public verification key'
+          }
+          "public=$public" >> $env:GITHUB_OUTPUT
+      - name: Configure protected game (never published)
+        shell: pwsh
+        run: |
+          cmake -S . -B build-protected -A x64 -DBUILD_TESTING=OFF -DHORROR_ENABLE_DISK_SEAL=ON "-DHORROR_SEAL_PUBLIC_KEY_HEX=${{ steps.verifier.outputs.public }}"
+          if ($LASTEXITCODE -ne 0) { throw 'Protected CMake configuration failed' }
+      - name: Compile statically linked Windows C++ and Rust application
+        shell: pwsh
+        run: |
+          cmake --build build-protected --config Release --parallel
+          if ($LASTEXITCODE -ne 0) { throw 'Protected application build failed' }
+      - name: Test executable identity and refusal without authorization
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $false
+          $master = Join-Path $env:GITHUB_WORKSPACE 'build-protected\Release\HorrorMe.exe'
+          if (-not (Test-Path $master)) { throw 'Missing protected application executable' }
+          $process = Start-Process -FilePath $master -ArgumentList '--disk-seal-check' -Wait -PassThru
+          $code = $process.ExitCode
+          if ($code -ne 21) { throw "Unpersonalized template must return 21, got $code" }
+          $personalized = Join-Path $env:RUNNER_TEMP 'HorrorMe-personalized.exe'
+          $id = (cargo run --quiet --manifest-path security/seal-bridge/Cargo.toml --bin seal-test-fixture -- personalize $master $personalized).Trim()
+          if ($LASTEXITCODE -ne 0 -or $id -notmatch '^DS-[0-9A-F]{32}$') {
+            throw 'Failed to embed a new installation ID'
+          }
+          $process = Start-Process -FilePath $personalized -ArgumentList '--disk-seal-check' -Wait -PassThru
+          $code = $process.ExitCode
+          if ($code -ne 22) { throw "Missing license must return 22, got $code" }
+          $copied = Join-Path $env:RUNNER_TEMP 'HorrorMe-copied.exe'
+          Copy-Item $personalized $copied
+          $process = Start-Process -FilePath $copied -ArgumentList '--disk-seal-check' -Wait -PassThru
+          $code = $process.ExitCode
+          if ($code -ne 22) { throw "An unauthorized copy must return 22, got $code" }
+          Write-Host "PASS: template, personalized copy and copied executable are not authorized."
+          exit 0
