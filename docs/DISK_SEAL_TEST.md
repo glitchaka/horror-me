@@ -14,6 +14,40 @@ Para una variante protegida en Windows x64 con MSVC:
 
 ## Preparación de la instalación para otro técnico
 
+La aplicación protegida **no autoriza cualquier pendrive que tenga el ejecutable**.
+El USB permitido es aquel en el que se crea el sello durante la emisión:
+`disk-seal` consulta el volumen/dispositivo actual del archivo de destino y
+firma su vínculo con el Installation ID interno del HorrorMe.exe personalizado.
+
+Ya existe una CLI administrativa en `glitchaka/disk-seal` que automatiza esa
+emisión. En un equipo Windows de confianza, con la carpeta `C:\\SST-Admin`
+y la herramienta `disk-seal.exe` compilada:
+
+```powershell
+# Solo una vez: emitir autoridad de licencias protegida mediante Windows DPAPI
+disk-seal.exe keygen C:\SST-Admin\authority.dskey C:\SST-Admin\authority.pub
+
+# Configurar/compilar la variante protegida de HorrorMe usando la clave pública
+$public = (Get-Content C:\SST-Admin\authority.pub -Raw).Trim()
+cmake -S . -B build-protected -A x64 -DBUILD_TESTING=OFF -DHORROR_ENABLE_DISK_SEAL=ON "-DHORROR_SEAL_PUBLIC_KEY_HEX=$public"
+cmake --build build-protected --config Release
+
+# Pendrive E: de Juan. Plantilla oficial SIN personalizar en el PC administrador.
+New-Item -ItemType Directory -Force E:\HorrorMe | Out-Null
+disk-seal.exe provision horror-me 0.4.1 C:\horror-me\build-protected\Release\HorrorMe.exe E:\HorrorMe\HorrorMe.exe Juan C:\SST-Admin\authority.dskey
+
+# Juego protegido: comprobar desde Windows sin abrir la ventana
+$p = Start-Process -FilePath E:\HorrorMe\HorrorMe.exe -ArgumentList '--disk-seal-check' -Wait -PassThru
+$p.ExitCode  # 0 significa autorizado
+```
+
+La clave privada `authority.dskey` queda cifrada mediante DPAPI para la
+cuenta administradora. **No se copia al pendrive de Juan**. La carpeta
+`E:\HorrorMe\data` contendrá únicamente sello y licencia firmada.
+
+Las instrucciones completas están en
+[PROVISIONING_WINDOWS.md](https://github.com/glitchaka/disk-seal/blob/main/docs/PROVISIONING_WINDOWS.md).
+
 1. Personalizar una copia del HorrorMe.exe protegido mediante disk-seal, incorporándole un ID único.
 2. Copiar ese ejecutable al USB final y generar installation.seal allí mismo, con aplicación horror-me.
 3. Fuera del USB, firmar los bytes exactos del sello mediante SignedLicense::issue y la clave privada de la autoridad.
